@@ -132,6 +132,12 @@ class PrometheusMetricsExporter:
             "Hardware thermal/voltage throttling state (1.0 = throttled, 0.0 = nominal).",
             registry=self.registry,
         )
+        # Hardware SIMD Acceleration Tier (1 = Native C, 2 = Numba LLVM JIT, 3 = Cached NumPy)
+        self.simd_active_tier = Gauge(
+            "audio_pipeline_simd_active_tier",
+            "Active hardware SIMD acceleration tier (1: Native C, 2: Numba LLVM JIT, 3: NumPy).",
+            registry=self.registry,
+        )
 
     def record_frame(
         self,
@@ -197,6 +203,10 @@ class PrometheusMetricsExporter:
         self.hardware_temp_c.set(float(temp_c))
         self.hardware_power_w.set(float(power_w))
         self.hardware_throttled.set(1.0 if throttled else 0.0)
+
+    def update_simd_tier(self, tier: int) -> None:
+        """Update active SIMD acceleration tier gauge (1: Native C, 2: Numba LLVM JIT, 3: NumPy)."""
+        self.simd_active_tier.set(float(tier))
 
     def set_active_clients(self, count: int) -> None:
         """Set current count of active concurrent streaming clients."""

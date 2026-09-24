@@ -54,6 +54,7 @@ from src.dashboard.protocol import (
     parse_ingress_binary,
     pack_egress_binary,
 )
+from src.models.kernels.simd_dispatch import get_simd_dispatcher
 
 app = FastAPI(
     title="Edge AI Neural Audio Denoiser & Latency Profiler",
@@ -187,6 +188,7 @@ async def get_metrics():
     """Prometheus exposition endpoint serving fine-grained hardware & audio telemetry."""
     mem = get_process_memory()
     metrics_exporter.update_memory(int(mem.rss_mb * 1024 * 1024))
+    metrics_exporter.update_simd_tier(get_simd_dispatcher().tier)
     return Response(content=metrics_exporter.generate_metrics(), media_type=CONTENT_TYPE_LATEST)
 
 
@@ -203,6 +205,7 @@ async def get_status():
     fp32_baseline = 165892
     compression_ratio = model_size / fp32_baseline
 
+    d = get_simd_dispatcher()
     return {
         "status": "online",
         "precision": prec,
@@ -217,6 +220,10 @@ async def get_status():
         "p95_latency_ms": round(stats.p95_total_ms, 3),
         "headroom_pct": round(stats.headroom_pct, 1),
         "active_clients": int(metrics_exporter.active_clients._value.get()),
+        "simd": {
+            "tier": d.tier,
+            "name": d.tier_name,
+        },
         "presets": ["white", "pink", "drone", "rf_static"],
         "all_presets": [
             "white",
@@ -1417,6 +1424,10 @@ async def websocket_stream(websocket: WebSocket):
                 "studio": client_pipeline.get_vocal_suite_telemetry(),
                 "vectorscope": state.vectorscope.analyze(out_frame),
                 "eq": client_pipeline.get_eq_curve(),
+                "simd": {
+                    "tier": get_simd_dispatcher().tier,
+                    "name": get_simd_dispatcher().tier_name,
+                },
                 "audio": {
                     "raw_noisy": np.round(frame_m, 4).tolist(),
                     "denoised": np.round(out_frame, 4).tolist(),
@@ -1902,6 +1913,10 @@ async def websocket_stream(websocket: WebSocket):
                         "studio": client_pipeline.get_vocal_suite_telemetry(),
                         "vectorscope": state.vectorscope.analyze(out_pcm),
                         "eq": client_pipeline.get_eq_curve(),
+                        "simd": {
+                            "tier": get_simd_dispatcher().tier,
+                            "name": get_simd_dispatcher().tier_name,
+                        },
                         "audio": {
                             "raw_noisy": np.round(pcm_data[:256], 4).tolist(),
                             "denoised": np.round(out_pcm, 4).tolist(),

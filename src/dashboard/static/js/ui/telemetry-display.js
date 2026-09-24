@@ -247,6 +247,15 @@ export function handleTelemetryMessage(msg, { onUpdateSubtitles, onUpdateTse, on
     updateEqCurveUI(msg.eq);
   }
 
+  // 19. SIMD Acceleration Tier
+  if (msg.simd) {
+    const simdBadge = $("simdBadge");
+    const simdHardwareVal = $("simdHardwareVal");
+    const tierName = msg.simd.name || (msg.simd.tier === 1 ? "Native C (AVX2/NEON)" : msg.simd.tier === 2 ? "Numba LLVM JIT (AVX2/VNNI)" : "NumPy Fallback");
+    if (simdBadge) simdBadge.textContent = `⚡ TIER ${msg.simd.tier}: ${tierName.toUpperCase()}`;
+    if (simdHardwareVal) simdHardwareVal.textContent = `Tier ${msg.simd.tier}: ${tierName.split(' ')[0]}`;
+  }
+
   // Accumulate audio for live recording
   if (state.isRecording && audio.denoised && audio.raw_noisy && onAccumulateRecording) {
     onAccumulateRecording(audio.denoised, audio.raw_noisy);

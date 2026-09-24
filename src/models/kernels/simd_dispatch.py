@@ -158,6 +158,16 @@ class SIMDDispatcher:
         """Return active tier index and descriptive name."""
         return self._tier, self._tier_name
 
+    @property
+    def tier(self) -> int:
+        """Active tier integer index (1, 2, or 3)."""
+        return self._tier
+
+    @property
+    def tier_name(self) -> str:
+        """Descriptive name of active hardware SIMD tier."""
+        return self._tier_name
+
     def gemv(
         self,
         x: np.ndarray,

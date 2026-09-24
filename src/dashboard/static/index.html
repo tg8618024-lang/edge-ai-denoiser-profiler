@@ -191,6 +191,7 @@
           <div class="ai-specs-row">
             <span class="ai-chip" id="aiChipMode">FP32 TENSOR</span>
             <span class="ai-chip speed-chip" id="aiChipSpeed">0.31 ms SPEED</span>
+            <span class="ai-chip simd-chip" id="simdBadge" title="Hardware SIMD Acceleration Tier">⚡ TIER 2: NUMBA LLVM JIT</span>
           </div>
         </div>
       </div>
@@ -1361,6 +1362,10 @@
           <div class="metric-box">
             <span class="metric-label">QUANT SQNR</span>
             <span class="metric-val" id="precSqnrVal">&infin; dB</span>
+          </div>
+          <div class="metric-box">
+            <span class="metric-label">SIMD HARDWARE</span>
+            <span class="metric-val text-accent" id="simdHardwareVal">Tier 2: AVX2</span>
           </div>
         </div>
       </div>

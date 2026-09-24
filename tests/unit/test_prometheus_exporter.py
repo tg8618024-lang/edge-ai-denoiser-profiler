@@ -60,6 +60,8 @@ def test_prometheus_exporter_audio_and_system_gauges():
     exporter.inc_active_clients()
     exporter.dec_active_clients()
 
+    exporter.update_simd_tier(2)
+
     metrics_text = exporter.generate_metrics().decode("utf-8")
 
     assert "audio_pipeline_snr_gain_db 12.5" in metrics_text
@@ -68,5 +70,6 @@ def test_prometheus_exporter_audio_and_system_gauges():
     assert "audio_pipeline_sound_purity_pct 98.5" in metrics_text
     assert "audio_pipeline_compute_savings_pct 45.2" in metrics_text
     assert "audio_pipeline_active_clients 5.0" in metrics_text
+    assert "audio_pipeline_simd_active_tier 2.0" in metrics_text
     assert "audio_pipeline_process_memory_rss_bytes" in metrics_text
     assert ("5.0331648e+07" in metrics_text or "50331648" in metrics_text)

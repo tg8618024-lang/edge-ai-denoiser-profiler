@@ -541,6 +541,12 @@ body.cyber-theme {
   background: #152216;
 }
 
+.simd-chip {
+  border-color: rgba(255, 170, 0, 0.4);
+  color: #ffaa00;
+  background: #251b0f;
+}
+
 .flow-arrow-wrap {
   display: flex;
   align-items: center;
@@ -994,7 +1000,7 @@ input:checked + .slider:before {
 
 .precision-metrics-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(95px, 1fr));
   gap: 6px;
   margin-top: 10px;
 }
