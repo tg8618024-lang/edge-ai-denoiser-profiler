@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Edge AI Denoiser</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="extension-container">
+    <!-- Header -->
+    <div class="header">
+      <div class="brand">
+        <div class="logo-icon"></div>
+        <div class="brand-text">
+          <span class="brand-title">EDGE AI VOICE</span>
+          <span class="brand-sub">STUDIO ACCELERATOR</span>
+        </div>
+      </div>
+      <div class="status-indicator online" id="server-status">
+        <span class="status-dot"></span>
+        <span class="status-label" id="status-text">ONLINE</span>
+      </div>
+    </div>
+
+    <!-- Master Toggle -->
+    <div class="card master-card">
+      <div class="toggle-info">
+        <span class="card-title">Real-Time Denoising</span>
+        <span class="card-desc">Google Meet & Discord Filter</span>
+      </div>
+      <label class="switch">
+        <input type="checkbox" id="toggle-active" checked>
+        <span class="slider"></span>
+      </label>
+    </div>
+
+    <!-- Model Mode Selection -->
+    <div class="card mode-card">
+      <span class="card-title">Inference Engine Mode</span>
+      <div class="mode-buttons">
+        <button class="mode-btn active" data-mode="neural">Model A (Neural)</button>
+        <button class="mode-btn" data-mode="wiener">Model B (DSP)</button>
+        <button class="mode-btn" data-mode="dual">Dual A/B</button>
+      </div>
+    </div>
+
+    <!-- Denoising Intensity Slider -->
+    <div class="card slider-card">
+      <div class="slider-header">
+        <span class="card-title">Suppression Intensity</span>
+        <span class="slider-value" id="intensity-val">100%</span>
+      </div>
+      <input type="range" id="slider-intensity" min="0" max="100" value="100" class="range-slider">
+    </div>
+
+    <!-- Real-Time Metrics Summary -->
+    <div class="card metrics-card">
+      <div class="metric-row">
+        <span class="metric-label">Estimated Latency:</span>
+        <span class="metric-val" id="metric-latency">0.26 ms</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-label">Noise Reduction:</span>
+        <span class="metric-val accent" id="metric-snr">+14.5 dB</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-label">Frame Budget:</span>
+        <span class="metric-val green">98.7% Headroom</span>
+      </div>
+    </div>
+
+    <!-- Footer Links -->
+    <div class="footer">
+      <a href="http://127.0.0.1:8000" target="_blank" class="footer-btn">
+        Open Full Studio Dashboard ↗
+      </a>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

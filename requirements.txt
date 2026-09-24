@@ -1,0 +1,21 @@
+# Core Neural DSP & Audio Processing
+numpy>=1.24.0
+scipy>=1.10.0
+soundfile>=0.12.0
+
+# Web Dashboard & Telemetry Streaming
+fastapi>=0.100.0
+uvicorn[standard]>=0.23.0
+websockets>=11.0
+pydantic>=2.0.0
+
+# Optional Audio / Analysis Utilities
+librosa>=0.10.0
+matplotlib>=3.7.0
+
+# Testing & Quality Assurance
+pytest>=7.4.0
+httpx>=0.24.0
+
+# Observability & Production Monitoring
+prometheus-client>=0.17.0

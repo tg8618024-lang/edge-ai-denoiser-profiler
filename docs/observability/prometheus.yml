@@ -1,0 +1,17 @@
+# Prometheus Configuration for Edge AI Neural Audio Denoiser & Hardware Profiler
+# Scrapes real-time fine-grained telemetry at 1-second intervals
+
+global:
+  scrape_interval: 1s
+  evaluation_interval: 1s
+  scrape_timeout: 1s
+
+scrape_configs:
+  - job_name: "edge-ai-audio-denoiser"
+    metrics_path: "/metrics"
+    static_configs:
+      - targets: ["host.docker.internal:8000", "localhost:8000"]
+        labels:
+          app: "edge-ai-audio-testbench"
+          environment: "edge-workstation"
+          role: "dsp-inference-engine"

@@ -1,0 +1,53 @@
+version: '3.8'
+
+# Docker Compose Edge Hardware Constraint Profiles
+# Simulates physical edge device resource limits (CPU cores, RAM quotas)
+
+services:
+  # Profile 1: Raspberry Pi Zero 2W Simulation (Cortex-A53, 0.5 vCPU, 256MB RAM)
+  edge-pi-zero:
+    build:
+      context: .
+      dockerfile: Dockerfile.edge
+    container_name: edge_ai_pi_zero
+    restart: unless-stopped
+    cpus: 0.5
+    mem_limit: 256m
+    memswap_limit: 256m
+    environment:
+      - DEVICE_PROFILE=raspberry_pi_zero_2
+      - PORT=8000
+    ports:
+      - "8001:8000"
+
+  # Profile 2: Raspberry Pi 4 Model B Simulation (Cortex-A72, 1.0 vCPU, 512MB RAM)
+  edge-pi-4:
+    build:
+      context: .
+      dockerfile: Dockerfile.edge
+    container_name: edge_ai_pi_4
+    restart: unless-stopped
+    cpus: 1.0
+    mem_limit: 512m
+    memswap_limit: 512m
+    environment:
+      - DEVICE_PROFILE=raspberry_pi_4
+      - PORT=8000
+    ports:
+      - "8002:8000"
+
+  # Profile 3: NVIDIA Jetson Nano Constrained Mode (2.0 vCPU, 1024MB RAM)
+  edge-jetson-nano:
+    build:
+      context: .
+      dockerfile: Dockerfile.edge
+    container_name: edge_ai_jetson_nano
+    restart: unless-stopped
+    cpus: 2.0
+    mem_limit: 1024m
+    memswap_limit: 1024m
+    environment:
+      - DEVICE_PROFILE=jetson_nano
+      - PORT=8000
+    ports:
+      - "8003:8000"

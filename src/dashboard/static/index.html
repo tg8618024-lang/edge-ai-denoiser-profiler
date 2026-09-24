@@ -1,0 +1,1573 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NVIDIA RTX Broadcast &middot; Edge AI Audio Denoiser &amp; Signal Testbench</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+</head>
+<body class="cyber-theme">
+  <!-- Top Navigation & System Status -->
+  <header class="app-header">
+    <div class="brand">
+      <div class="nvidia-logo"></div>
+      <div class="brand-text">
+        <div class="brand-badge-row">
+          <span class="badge-rtx">RTX STUDIO</span>
+          <span class="badge-sub">SUB-MILLISECOND AI ENGINE</span>
+        </div>
+        <h1>EDGE AI AUDIO DENOISER &amp; PROFILER</h1>
+        <span class="sub-brand">NEURAL SPEECH ENHANCEMENT &middot; REAL-TIME SIGNAL &amp; WAVEFORM TESTBENCH</span>
+      </div>
+    </div>
+    <div class="header-status">
+      <div class="status-pill status-online" id="connectionStatus">
+        <span class="pulse-dot"></span> WEBSOCKET LIVE
+      </div>
+      <div class="status-pill">
+        <span class="pill-label">FRAME BUDGET:</span>
+        <span class="pill-value text-accent">20.0 ms</span>
+      </div>
+      <div class="status-pill">
+        <span class="pill-label">PROCESS RSS:</span>
+        <span class="pill-value" id="rssDisplay">-- MB</span>
+      </div>
+      <div class="status-pill">
+        <span class="pill-label">DOMINANT PEAK:</span>
+        <span class="pill-value text-cyan" id="headerPeakFreq">-- Hz</span>
+      </div>
+      <div class="shortcuts-pill" title="Keyboard Shortcuts: Space=Stream | M=Magic A/B | 1/2/3=Precision | K=Kid Mode | P=Pro Mode">
+        <span class="shortcut-key">SPACE</span> Stream
+        <span class="shortcut-key">M</span> A/B
+        <span class="shortcut-key">1-3</span> Prec
+        <span class="shortcut-key">K</span> Kid
+      </div>
+      <div class="view-mode-toggle">
+        <button id="btnViewCombined" class="btn btn-view active" title="Show All Studio Panels">STUDIO</button>
+        <button id="btnViewSimple" class="btn btn-view" title="Kid-Friendly Signal Journey">KID / HERO</button>
+        <button id="btnViewPro" class="btn btn-view" title="Pro Engineering Telemetry">PRO LAB</button>
+      </div>
+    </div>
+  </header>
+
+
+  <!-- Workspace Tab Navigation Bar (De-cluttered Workstation Layout) -->
+  <nav class="workspace-tabs-bar" id="workspaceTabsBar">
+    <button class="tab-btn active" data-view="viewBroadcast">
+      <span class="tab-icon">&#127908;</span>
+      <div class="tab-text-wrap">
+        <span class="tab-title">BROADCAST STUDIO</span>
+        <span class="tab-sub">Voice AI &bull; Purity &bull; Waveforms</span>
+      </div>
+    </button>
+    <button class="tab-btn" data-view="viewEqSuite">
+      <span class="tab-icon">&#127918;</span>
+      <div class="tab-text-wrap">
+        <span class="tab-title">STUDIO EQ &amp; DYNAMICS</span>
+        <span class="tab-sub">5-Band Parametric EQ &bull; Vocal Suite &bull; De-Reverb</span>
+      </div>
+    </button>
+    <button class="tab-btn" data-view="viewVectorscope">
+      <span class="tab-icon">&#129517;</span>
+      <div class="tab-text-wrap">
+        <span class="tab-title">POLAR VECTORSCOPE</span>
+        <span class="tab-sub">Phase Coherence Radar &bull; DNSMOS Quality</span>
+      </div>
+    </button>
+    <button class="tab-btn" data-view="viewBatch">
+      <span class="tab-icon">&#128202;</span>
+      <div class="tab-text-wrap">
+        <span class="tab-title">BATCH BENCHMARK</span>
+        <span class="tab-sub">Multi-File Matrix &bull; HTML/JSON Reports</span>
+      </div>
+    </button>
+    <button class="tab-btn" data-view="viewTelemetry">
+      <span class="tab-icon">&#9889;</span>
+      <div class="tab-text-wrap">
+        <span class="tab-title">HARDWARE PROFILER</span>
+        <span class="tab-sub">3-Stage Latency &bull; FP32 / FP16 / INT8</span>
+      </div>
+    </button>
+    <button class="tab-btn tab-all-panels" data-view="viewAll">
+      <span class="tab-icon">&#128065;</span>
+      <div class="tab-text-wrap">
+        <span class="tab-title">ALL PANELS</span>
+        <span class="tab-sub">Power-User Grid</span>
+      </div>
+    </button>
+  </nav>
+
+  <!-- ========================================================================= -->
+  <!-- WORKSPACE VIEWS CONTAINER (DE-CLUTTERED WORKSTATION ARCHITECTURE)         -->
+  <!-- ========================================================================= -->
+  <div class="workspace-views-container" id="workspaceViewsContainer">
+
+    <!-- VIEW 1: BROADCAST STUDIO (DEFAULT, UNCLUTTERED EVERYDAY EXPERIENCE) -->
+    <div class="workspace-view active" id="viewBroadcast">
+        <section class="hero-storyboard-panel" id="heroStoryboard">
+    <div class="storyboard-header">
+      <div class="storyboard-title-group">
+        <div class="storyboard-title-badge-row">
+          <span class="story-pill">&#10024; VISUAL SIGNAL JOURNEY</span>
+          <div class="noise-fingerprint-badge" id="noiseFingerprintBadge" title="Real-Time AI Acoustic Noise Signature Classifier">
+            <span class="fp-icon" id="fpIcon">&#127754;</span>
+            <div class="fp-info">
+              <span class="fp-label-sub">AI NOISE SIGNATURE</span>
+              <span class="fp-name" id="fpName">Detecting Signature...</span>
+            </div>
+            <div class="fp-meter-wrap">
+              <span class="fp-conf" id="fpConf">95% CONF</span>
+              <div class="fp-bar-track"><div class="fp-bar" id="fpBar" style="width: 95%;"></div></div>
+            </div>
+          </div>
+          <button class="btn-auto-adapt" id="btnAutoAdaptToggle" title="Toggle Auto-Adaptive AI suppression dynamically tuned to acoustic environment">
+            <span class="adapt-icon">&#9881;</span>
+            <span class="adapt-label" id="autoAdaptText">AUTO-ADAPT: OFF</span>
+          </button>
+        </div>
+        <h2>HOW THE MAGIC AI AUDIO CLEANER WORKS</h2>
+        <p class="story-desc">Watch how dirty, spiky sound gets transformed into sparkling clean human voice in real time!</p>
+      </div>
+
+      <!-- Giant Sound Purity & Health Hero Gauge -->
+      <div class="hero-purity-dial">
+        <div class="purity-svg-container">
+          <svg class="purity-svg" viewBox="0 0 100 100">
+            <circle class="purity-bg" cx="50" cy="50" r="42" />
+            <circle class="purity-bar" id="purityGaugeBar" cx="50" cy="50" r="42" />
+          </svg>
+          <div class="purity-text-wrap">
+            <span class="purity-number" id="purityPctText">100%</span>
+            <span class="purity-sub">SOUND PURITY</span>
+          </div>
+        </div>
+        <div class="purity-badge-box">
+          <span class="purity-status-badge text-accent" id="purityStatusBadge">&#128142; READY &middot; CLICK MAGIC DENOISE</span>
+          <span class="noise-erased-text" id="noiseErasedText">Noise Erased: Ready (100%)</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Visual 4-Step Pipeline Cards -->
+    <div class="storyboard-flow-grid">
+      <!-- Step 1: Noisy Audio In -->
+      <div class="story-step-card step-noisy">
+        <div class="step-num">STEP 1</div>
+        <div class="step-icon-wrap icon-noisy">&#127786;&#65039;</div>
+        <div class="step-content">
+          <div class="step-header-row">
+            <span class="step-title">MUDDY / NOISY AUDIO IN</span>
+            <span class="status-tag tag-bad" id="step1NoiseTag">DIRTY SOUND</span>
+          </div>
+          <p class="step-info">Voice buried inside loud fans, traffic, droning hum, and crackle.</p>
+          <div class="live-vu-wrap">
+            <span class="vu-label">NOISE LEVEL:</span>
+            <div class="vu-bar-track">
+              <div class="vu-bar-fill fill-noisy" id="vuIn" style="width: 0%;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Flow Arrow 1 -->
+      <div class="flow-arrow-wrap">
+        <div class="flow-arrow-beam"></div>
+        <span class="flow-arrow-icon">&#10140;</span>
+      </div>
+
+      <!-- Step 2: AI Brain Neural Filter -->
+      <div class="story-step-card step-ai">
+        <div class="step-num">STEP 2</div>
+        <div class="step-icon-wrap icon-ai">&#9889;</div>
+        <div class="step-content">
+          <div class="step-header-row">
+            <span class="step-title">RTX TENSOR AI FILTER</span>
+            <span class="status-tag tag-ai">AI CLEANER</span>
+          </div>
+          <p class="step-info">Neural MaskNet separates human voice from noise in under 0.3 ms.</p>
+          <div class="ai-specs-row">
+            <span class="ai-chip" id="aiChipMode">FP32 TENSOR</span>
+            <span class="ai-chip speed-chip" id="aiChipSpeed">0.31 ms SPEED</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Flow Arrow 2 -->
+      <div class="flow-arrow-wrap">
+        <div class="flow-arrow-beam"></div>
+        <span class="flow-arrow-icon">&#10140;</span>
+      </div>
+
+      <!-- Step 3: Crystal Voice Out -->
+      <div class="story-step-card step-clean">
+        <div class="step-num">STEP 3</div>
+        <div class="step-icon-wrap icon-clean">&#128142;</div>
+        <div class="step-content">
+          <div class="step-header-row">
+            <span class="step-title">CRYSTAL CLEAN VOICE OUT</span>
+            <span class="status-tag tag-good">PURE VOICE</span>
+          </div>
+          <p class="step-info">Smooth, pristine speech with 100% vocal harmonics preserved.</p>
+          <div class="live-vu-wrap">
+            <span class="vu-label">VOICE CLARITY:</span>
+            <div class="vu-bar-track">
+              <div class="vu-bar-fill fill-clean" id="vuOut" style="width: 0%;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 4: Trash Noise Dumped -->
+      <div class="story-step-card step-trash">
+        <div class="step-num">DELTA</div>
+        <div class="step-icon-wrap icon-trash">&#128465;&#65039;</div>
+        <div class="step-content">
+          <div class="step-header-row">
+            <span class="step-title">GARBAGE NOISE ERASED</span>
+            <span class="status-tag tag-trash">ELIMINATED</span>
+          </div>
+          <p class="step-info">Subtracted noise delta (x[n] &minus; y[n]) discarded into the trash.</p>
+          <div class="live-vu-wrap">
+            <span class="vu-label">TRASH DUMPED:</span>
+            <div class="vu-bar-track">
+              <div class="vu-bar-fill fill-trash" id="vuNoise" style="width: 0%;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Master Magic Denoise Interactive Action Bar -->
+    <div class="magic-action-bar">
+      <div class="magic-toggle-wrap">
+        <button id="magicDenoiseBtn" class="btn-magic active" title="Toggle between clean AI voice and raw noisy audio">
+          <span class="magic-glow"></span>
+          <span class="magic-icon">&#10024;</span>
+          <div class="magic-text">
+            <span class="magic-state" id="magicStateText">MAGIC AI DENOISE: ACTIVE</span>
+            <span class="magic-sub" id="magicSubText">Listening to 100% Clean Crystal Voice</span>
+          </div>
+        </button>
+      </div>
+
+      <div class="quick-demo-wrap">
+        <button id="btnHeroStream" class="btn btn-hero-stream" title="Start listening to real-time audio benchmark">
+          <span class="demo-icon" id="heroStreamIcon">&#9658;</span>
+          <span class="demo-text" id="heroStreamText">START SOUND DEMO</span>
+        </button>
+        <button id="btnQuickExportWav" class="btn btn-quick-export" title="1-Click Download Clean Audio (WAV)">
+          <span class="export-icon">&#128142;</span>
+          <span class="export-text">SAVE CLEAN WAV</span>
+        </button>
+      </div>
+
+      <div class="quick-crossfade-container">
+        <div class="crossfade-labels">
+          <span class="cf-label noisy-label" id="cfNoisyLabel" title="Click to listen to noisy audio">A: RAW NOISY INPUT</span>
+          <span class="cf-indicator-text" id="cfIndicatorText">20ms CLICK-FREE CROSS-FADE</span>
+          <span class="cf-label clean-label active" id="cfCleanLabel" title="Click to listen to clean voice">B: CLEAN VOICE OUTPUT</span>
+        </div>
+        <div class="crossfade-track" id="crossfadeTrack" title="Click to toggle A/B monitoring">
+          <div class="crossfade-pill" id="crossfadePill" style="left: calc(100% - 28px);"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+
+        <main class="dashboard-grid">
+    <!-- ======================================================================= -->
+    <!-- Left Column: Audio Controls & Multi-Precision Engine                   -->
+    <!-- ======================================================================= -->
+    <section class="control-panel panel-card">
+      <h2 class="panel-title"><span class="title-icon">&#9881;</span> AUDIO TESTBENCH &amp; INPUT SOURCE</h2>
+
+      <div class="source-selector">
+        <label class="section-label">SELECT INPUT SOURCE</label>
+        <div class="btn-group">
+          <button id="btnSourceBenchmark" class="btn btn-tab active">&#127925; BENCHMARK AUDIO</button>
+          <button id="btnSourceUpload" class="btn btn-tab">&#128193; CUSTOM WAV UPLOAD</button>
+          <button id="btnSourceMic" class="btn btn-tab">&#127908; LIVE MICROPHONE</button>
+        </div>
+      </div>
+
+      <!-- Benchmark Controls -->
+      <div id="benchmarkControls" class="control-subgroup">
+        <label class="section-label">CURATED BENCHMARK NOISE PROFILES (8 CALIBRATED PRESETS)</label>
+        <div class="preset-grid">
+          <button class="btn btn-preset active" data-preset="white" data-snr="0">
+            <div class="preset-top">
+              <span class="preset-icon">&#127754;</span>
+              <span class="preset-name">White Noise</span>
+            </div>
+            <span class="preset-meta">0 dB &middot; Flat Gaussian Thermal</span>
+          </button>
+          <button class="btn btn-preset" data-preset="pink" data-snr="0">
+            <div class="preset-top">
+              <span class="preset-icon">&#128168;</span>
+              <span class="preset-name">Pink Noise</span>
+            </div>
+            <span class="preset-meta">0 dB &middot; 1/f Room Acoustic</span>
+          </button>
+          <button class="btn btn-preset" data-preset="drone" data-snr="5">
+            <div class="preset-top">
+              <span class="preset-icon">&#128641;</span>
+              <span class="preset-name">Drone Motor Hum</span>
+            </div>
+            <span class="preset-meta">+5 dB &middot; 120Hz Harmonics</span>
+          </button>
+          <button class="btn btn-preset" data-preset="rf_static" data-snr="-5">
+            <div class="preset-top">
+              <span class="preset-icon">&#9889;</span>
+              <span class="preset-name">RF Static Crackle</span>
+            </div>
+            <span class="preset-meta">-5 dB &middot; Poisson Impulse</span>
+          </button>
+          <button class="btn btn-preset" data-preset="cafe" data-snr="0">
+            <div class="preset-top">
+              <span class="preset-icon">&#9749;</span>
+              <span class="preset-name">Cafe Babble</span>
+            </div>
+            <span class="preset-meta">0 dB &middot; Ambient Chatter</span>
+          </button>
+          <button class="btn btn-preset" data-preset="rain" data-snr="2">
+            <div class="preset-top">
+              <span class="preset-icon">&#127783;&#65039;</span>
+              <span class="preset-name">Rain Shower</span>
+            </div>
+            <span class="preset-meta">+2 dB &middot; Stochastic Droplets</span>
+          </button>
+          <button class="btn btn-preset" data-preset="keyboard" data-snr="-2">
+            <div class="preset-top">
+              <span class="preset-icon">&#9000;</span>
+              <span class="preset-name">Mech Keyboard</span>
+            </div>
+            <span class="preset-meta">-2 dB &middot; Tactile Clicks</span>
+          </button>
+          <button class="btn btn-preset" data-preset="air_conditioner" data-snr="4">
+            <div class="preset-top">
+              <span class="preset-icon">&#10052;&#65039;</span>
+              <span class="preset-name">AC Compressor</span>
+            </div>
+            <span class="preset-meta">+4 dB &middot; Duct Airflow</span>
+          </button>
+        </div>
+
+        <div class="stream-action-row">
+          <button id="btnStreamToggle" class="btn btn-primary btn-large">
+            <span class="icon">&#9658;</span> START BENCHMARK STREAM
+          </button>
+        </div>
+      </div>
+
+      <!-- Custom WAV Upload Controls -->
+      <div id="uploadControls" class="control-subgroup hidden">
+        <label class="section-label">DRAG &amp; DROP AUDIO FILE (.WAV)</label>
+        <div class="upload-dropzone" id="uploadDropzone">
+          <input type="file" id="wavFileInput" accept=".wav,audio/wav" style="display:none;" />
+          <div class="dropzone-icon">&#128229;</div>
+          <div class="dropzone-title">DROP WAV FILE HERE OR CLICK TO BROWSE</div>
+          <div class="dropzone-sub">Supports 16-bit / 24-bit PCM &middot; Auto-resampled to 16 kHz Mono &middot; Up to 30s</div>
+        </div>
+
+        <div id="uploadStatusCard" class="upload-status-card hidden">
+          <div class="upload-card-header">
+            <div class="file-name-wrap">
+              <span class="upload-file-icon">&#127926;</span>
+              <span class="upload-file-title" id="uploadFileName">audio.wav</span>
+            </div>
+            <span class="status-tag tag-good" id="uploadFileStatus">READY</span>
+          </div>
+          <div class="upload-meta-row">
+            <span class="meta-item"><strong id="uploadMetaDuration">0.0s</strong> DURATION</span>
+            <span class="meta-item"><strong id="uploadMetaSamples">0</strong> SAMPLES</span>
+            <span class="meta-item text-accent"><strong id="uploadMetaPurity">100%</strong> PURITY</span>
+            <span class="meta-item text-success"><strong id="uploadMetaSnr">+0.0 dB</strong> SNR GAIN</span>
+          </div>
+          <div class="upload-preview-canvas-wrap">
+            <canvas id="canvasUploadPreview" width="480" height="64"></canvas>
+            <div class="preview-legend">
+              <span class="legend-preview-in">Red: Raw Input</span>
+              <span class="legend-preview-out">Green: Denoised</span>
+            </div>
+          </div>
+          <div class="upload-action-buttons">
+            <button id="btnPlayUploadedClean" class="btn btn-accent btn-sm">&#9658; PLAY CLEANED VOICE</button>
+            <button id="btnPlayUploadedNoisy" class="btn btn-sm">&#9658; PLAY RAW NOISY</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Live Mic Controls -->
+      <div id="micControls" class="control-subgroup hidden">
+        <div class="mic-status-box">
+          <div class="mic-icon">&#127908;</div>
+          <div class="mic-info">
+            <div id="micLabel">Microphone: Standby</div>
+            <span class="mic-sub">256-sample chunks @ 16 kHz mono Web Audio</span>
+          </div>
+        </div>
+        <button id="btnMicToggle" class="btn btn-primary btn-large">
+          ACTIVATE LIVE MIC
+        </button>
+      </div>
+
+      <!-- AI Noise Suppression Depth Intensity Slider -->
+      <div class="intensity-section">
+        <div class="intensity-header-row">
+          <label class="section-label" for="suppressionSlider">NOISE SUPPRESSION INTENSITY</label>
+          <span class="intensity-badge text-accent" id="suppressionValue">100% (MAXIMUM ISOLATION)</span>
+        </div>
+        <div class="slider-container">
+          <input type="range" id="suppressionSlider" min="0" max="100" value="100" step="5" class="custom-slider" />
+        </div>
+        <div class="intensity-quick-presets">
+          <button class="btn btn-chip" data-intensity="0.25">25% Natural</button>
+          <button class="btn btn-chip" data-intensity="0.50">50% Balanced</button>
+          <button class="btn btn-chip" data-intensity="0.75">75% Studio</button>
+          <button class="btn btn-chip active" data-intensity="1.00">100% Max</button>
+        </div>
+      </div>
+
+      <!-- Seamless Click-Free A/B Toggle -->
+      <div class="ab-toggle-section">
+        <label class="section-label">A/B DIRECT MONITORING COMPARISON</label>
+        <div class="ab-switch-container">
+          <div class="ab-switch-label" id="labelA">A: NOISY INPUT</div>
+          <label class="switch">
+            <input type="checkbox" id="abToggleCheckbox" checked>
+            <span class="slider round"></span>
+          </label>
+          <div class="ab-switch-label active" id="labelB">B: DENOISED OUTPUT</div>
+        </div>
+        <div class="volume-slider-row">
+          <label for="volumeSlider">MONITOR VOLUME:</label>
+          <input type="range" id="volumeSlider" min="0" max="100" value="80">
+          <span id="volumeValue">80%</span>
+        </div>
+      </div>
+
+      <div class="panel-card tse-panel" id="tseSection">
+        <div class="section-header-flex">
+          <div class="suite-title-group">
+            <div class="brand-badge-row">
+              <span class="badge-rtx">VOICE LOCK AI</span>
+              <span class="badge-new">TARGET SPEAKER EXTRACTION</span>
+            </div>
+            <label class="section-label"><span class="title-icon">&#128274;</span> TARGET SPEAKER VOICE LOCK (TSE)</label>
+          </div>
+          <span class="status-tag tag-unlocked" id="tseLockStatusBadge">&#128275; UNLOCKED (ALL VOICES)</span>
+        </div>
+
+        <div class="tse-trigger-banner" id="tseTriggerBanner">
+          <span class="trigger-banner-icon">&#128483;&#65039;</span>
+          <div class="trigger-banner-text">
+            <strong>Spoken Trigger Words:</strong> Say <span class="trigger-kw">"Lock Voice"</span> or <span class="trigger-kw">"Hey Denoiser"</span> to isolate your voice &bull; Say <span class="trigger-kw">"Unlock Voice"</span> to release.
+          </div>
+          <span class="trigger-last-phrase text-accent" id="tseLastTriggerPhrase"></span>
+        </div>
+
+        <!-- Similarity & Voice Match Meter -->
+        <div class="tse-similarity-meter-wrap">
+          <div class="meter-labels-row">
+            <span class="meter-title">ACOUSTIC VOICEPRINT MATCH:</span>
+            <span class="meter-val text-accent" id="tseSimilarityVal">100.0%</span>
+          </div>
+          <div class="meter-track">
+            <div class="meter-fill fill-match" id="tseSimilarityBar" style="width: 100%;"></div>
+          </div>
+        </div>
+
+        <!-- Voice Lock Info & Secondary Suppression -->
+        <div class="tse-stats-grid">
+          <div class="tse-stat-box">
+            <span class="stat-name">Active Speaker:</span>
+            <span class="stat-val text-success" id="tseTargetState">Primary Voice</span>
+          </div>
+          <div class="tse-stat-box">
+            <span class="stat-name">Competing Speaker Atten:</span>
+            <span class="stat-val text-warning" id="tseSuppressionVal">0.0 dB</span>
+          </div>
+          <div class="tse-stat-box">
+            <span class="stat-name">Enrollment Progress:</span>
+            <span class="stat-val" id="tseEnrollmentVal">Ready</span>
+          </div>
+        </div>
+
+        <!-- 1-Click Action Buttons -->
+        <div class="tse-actions-row">
+          <button id="btnTseLock" class="btn btn-accent btn-sm" title="Lock onto primary speaker voiceprint">
+            <span class="btn-icon">&#128274;</span> LOCK VOICE NOW
+          </button>
+          <button id="btnTseUnlock" class="btn btn-outline btn-sm" title="Unlock voice lock, allowing all voices">
+            <span class="btn-icon">&#128275;</span> UNLOCK (PASS ALL)
+          </button>
+        </div>
+      </div>
+
+      <!-- ===================================================================== -->
+      <!-- STUDIO SOUND QUALITY SUITE (OPTION A): DEREVERB & BROADCAST MASTERING -->
+      <!-- ===================================================================== -->
+      <!-- SNR Improvement Meter -->
+      <div class="snr-panel">
+        <label class="section-label">REAL-TIME SIGNAL-TO-NOISE RATIO</label>
+        <div class="snr-grid">
+          <div class="snr-card">
+            <span class="snr-card-label">INPUT SNR</span>
+            <span class="snr-card-val text-warning" id="snrInVal">0.00 dB</span>
+          </div>
+          <div class="snr-card">
+            <span class="snr-card-label">OUTPUT SNR</span>
+            <span class="snr-card-val text-info" id="snrOutVal">13.62 dB</span>
+          </div>
+          <div class="snr-card highlight">
+            <span class="snr-card-label">&Delta; SNR GAIN</span>
+            <span class="snr-card-val text-success" id="snrDeltaVal">+13.62 dB</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Benchmark Telemetry Reports -->
+      <div class="preset-export-panel panel-subcard">
+        <div class="section-header-flex">
+          <label class="section-label">&#128202; BENCHMARK TELEMETRY &amp; REPORTS</label>
+          <span class="badge-rtx">SYSTEM PROFILER</span>
+        </div>
+        <p class="export-desc">Export real-time P50/P95 latency percentiles, stage breakdowns, and SNR metrics:</p>
+        <div class="btn-group-sm">
+          <button id="btnExportJson" class="btn btn-sm btn-accent" title="Download JSON latency &amp; SNR benchmark report">&#128202; JSON REPORT</button>
+          <button id="btnExportCsv" class="btn btn-sm" title="Download CSV spreadsheet of latency percentiles">&#128200; CSV TABLE</button>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- ======================================================================= -->
+    <!-- Right Column: Real-Time Oscilloscopes, Waterfall & Hardware Profiler    -->
+    <!-- ======================================================================= -->
+    <section class="visualizer-panel">
+      <!-- ===================================================================== -->
+      <!-- CORE FEATURE: REAL-TIME INPUT vs OUTPUT WAVEFORM / SIGNAL OSCILLOSCOPE -->
+      <!-- ===================================================================== -->
+      <div class="oscilloscope-card panel-card" id="oscilloscopeSection">
+        <div class="card-header">
+          <div class="title-with-badge">
+            <h2 class="panel-title"><span class="title-icon">&#128200;</span> REAL-TIME SIGNAL &amp; WAVEFORM OSCILLOSCOPE</h2>
+            <span class="badge-new">INPUT vs OUTPUT DIFFERENCE</span>
+          </div>
+          <div class="oscilloscope-controls">
+            <div class="btn-group-osc">
+              <button id="btnOscOverlay" class="btn btn-osc active" title="Overlay all 3 signals on one calibrated reticle grid">
+                &#9651; OVERLAY RETICLE
+              </button>
+              <button id="btnOscSplit" class="btn btn-osc" title="Stack 3 synchronized oscilloscope channels">
+                &#9776; 3-CHANNEL SPLIT
+              </button>
+              <button id="btnOscDiff" class="btn btn-osc active" title="Highlight real-time noise difference area between input & output">
+                &#9638; DIFF SHADING
+              </button>
+            </div>
+            <div class="timebase-selector">
+              <span class="tb-label">WINDOW:</span>
+              <button class="btn btn-tb active" data-window="512">1x (32ms)</button>
+              <button class="btn btn-tb" data-window="1024">2x (64ms)</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Waveform Oscilloscope Canvas -->
+        <div class="oscilloscope-viewport">
+          <canvas id="canvasOscilloscope" width="1024" height="300"></canvas>
+          <div class="reticle-scale">
+            <span class="scale-item top">+1.0</span>
+            <span class="scale-item center">0.0</span>
+            <span class="scale-item bottom">-1.0</span>
+          </div>
+        </div>
+
+        <!-- Oscilloscope Interactive Channel Legend & Signal Metrics -->
+        <div class="oscilloscope-legend-bar">
+          <!-- Channel 1: Noisy Input -->
+          <div class="osc-chan-pill chan-input active" id="pillChanIn" title="Click to show/hide Noisy Input">
+            <span class="chan-dot dot-red"></span>
+            <div class="chan-info">
+              <span class="chan-name">NOISY INPUT x[n] <span class="chan-state-tag" id="tagChanIn">ON</span></span>
+              <span class="chan-val" id="oscRmsIn">RMS: -- | PK: --</span>
+            </div>
+          </div>
+
+          <!-- Channel 2: Denoised Output -->
+          <div class="osc-chan-pill chan-output active" id="pillChanOut" title="Click to show/hide Denoised Voice">
+            <span class="chan-dot dot-green"></span>
+            <div class="chan-info">
+              <span class="chan-name">DENOISED VOICE y[n] <span class="chan-state-tag" id="tagChanOut">ON</span></span>
+              <span class="chan-val text-accent" id="oscRmsOut">RMS: -- | PK: --</span>
+            </div>
+          </div>
+
+          <!-- Channel 3: Subtracted Noise Delta -->
+          <div class="osc-chan-pill chan-subtracted active" id="pillChanSub" title="Click to show/hide Subtracted Noise">
+            <span class="chan-dot dot-purple"></span>
+            <div class="chan-info">
+              <span class="chan-name">SUBTRACTED NOISE &Delta; (x &minus; y) <span class="chan-state-tag" id="tagChanSub">ON</span></span>
+              <span class="chan-val text-purple" id="oscRmsSub">RMS: -- | ERASED</span>
+            </div>
+          </div>
+
+          <!-- Real-Time FFT Dominant Peak & Floor -->
+          <div class="osc-chan-pill chan-fft-peak" id="pillChanPeak" title="Real-Time Dominant Frequency / Pitch Peak">
+            <span class="chan-dot dot-cyan"></span>
+            <div class="chan-info">
+              <span class="chan-name">DOMINANT PEAK <span class="chan-state-tag tag-cyan">FFT</span></span>
+              <span class="chan-val text-cyan" id="oscPeakHz">-- Hz</span>
+            </div>
+          </div>
+
+          <!-- Real-Time Delta SNR Tag -->
+          <div class="osc-gain-pill">
+            <span class="gain-title">CLEANING POWER:</span>
+            <span class="gain-val text-success" id="oscGainVal">READY</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===================================================================== -->
+      <!-- Dual STFT Waterfall Spectrogram                                        -->
+      <!-- ===================================================================== -->
+      <div class="spectrogram-card panel-card" id="spectrogramSection">
+        <div class="card-header">
+          <h2 class="panel-title"><span class="title-icon">&#9883;</span> 60 FPS DUAL WATERFALL SPECTROGRAM</h2>
+          <div class="spec-header-actions">
+            <button id="btnSpec3D" class="btn btn-spec-mode" title="Toggle between 2D Top-Down and 3D Perspective Waterfall Spectrogram">
+              &#9651; 3D PERSPECTIVE
+            </button>
+            <span class="fps-badge" id="specModeBadge">CANVAS 60 FPS</span>
+          </div>
+        </div>
+        <div class="waterfall-container">
+          <div class="waterfall-half">
+            <div class="waterfall-header">
+              <span class="waterfall-title text-warning">&#127786;&#65039; BEFORE (NOISY MIXTURE)</span>
+              <span class="freq-range">0 Hz &mdash; 8000 Hz</span>
+            </div>
+            <div class="canvas-spec-wrap">
+              <canvas id="canvasBefore" width="512" height="200"></canvas>
+              <div class="spec-time-ticks">
+                <span>NOW (t=0)</span>
+                <span>-1.5s</span>
+                <span>-3.0s</span>
+              </div>
+              <div class="spec-freq-bar">
+                <span>0 Hz</span>
+                <span>2 kHz</span>
+                <span>4 kHz</span>
+                <span>6 kHz</span>
+                <span>8 kHz</span>
+              </div>
+              <div class="spec-freq-ticks hidden">
+                <span>8 kHz</span>
+                <span>4 kHz</span>
+                <span>2 kHz</span>
+                <span>0 kHz</span>
+              </div>
+            </div>
+          </div>
+          <div class="waterfall-half">
+            <div class="waterfall-header">
+              <span class="waterfall-title text-accent">&#128142; AFTER (NEURAL DENOISED)</span>
+              <span class="freq-range">0 Hz &mdash; 8000 Hz</span>
+            </div>
+            <div class="canvas-spec-wrap">
+              <canvas id="canvasAfter" width="512" height="200"></canvas>
+              <div class="spec-time-ticks">
+                <span>NOW (t=0)</span>
+                <span>-1.5s</span>
+                <span>-3.0s</span>
+              </div>
+              <div class="spec-freq-bar">
+                <span>0 Hz</span>
+                <span>2 kHz</span>
+                <span>4 kHz</span>
+                <span>6 kHz</span>
+                <span>8 kHz</span>
+              </div>
+              <div class="spec-freq-ticks hidden">
+                <span>8 kHz</span>
+                <span>4 kHz</span>
+                <span>2 kHz</span>
+                <span>0 kHz</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+
+      <!-- ===================================================================== -->
+      <!-- NVIDIA Latency Breakdown & Budget Headroom                            -->
+      <!-- ===================================================================== -->
+    </section>
+  </main>
+
+        <section class="hero-subtitles-suite panel-card" id="subtitlesSection">
+    <div class="suite-header-bar">
+      <div class="suite-title-group">
+        <div class="brand-badge-row">
+          <span class="badge-rtx">RTX STUDIO HERO SUITE</span>
+          <span class="badge-new">OFFLINE &middot; SUB-0.1ms EDGE ASR</span>
+          <span class="badge-sub">&#127470;&#127475; 9 INDIAN + &#127757; 6 GLOBAL LANGUAGES</span>
+        </div>
+        <h2 class="suite-title"><span class="title-icon">&#128172;</span> REAL-TIME SPEECH-TO-TEXT &amp; MULTILINGUAL TRANSLATION</h2>
+        <p class="suite-desc">Studio-grade phonetic ASR streaming and sub-millisecond offline neural translation with native Unicode typography.</p>
+      </div>
+
+      <div class="suite-controls-group">
+        <div class="translation-controls">
+          <label class="lang-select-label" for="targetLangSelect"><span class="globe-icon">&#127760;</span> TARGET LANGUAGE:</label>
+          <select id="targetLangSelect" class="custom-select lang-dropdown">
+            <optgroup label="&#127470;&#127475; Indian Languages Suite (9 Regional Languages)">
+              <option value="hi" selected>&#127470;&#127475; Hindi (हिन्दी)</option>
+              <option value="ta">&#127470;&#127475; Tamil (தமிழ்)</option>
+              <option value="te">&#127470;&#127475; Telugu (తెలుగు)</option>
+              <option value="bn">&#127470;&#127475; Bengali (বাংলা)</option>
+              <option value="mr">&#127470;&#127475; Marathi (मराठी)</option>
+              <option value="gu">&#127470;&#127475; Gujarati (ગુજરાતી)</option>
+              <option value="kn">&#127470;&#127475; Kannada (ಕನ್ನಡ)</option>
+              <option value="ml">&#127470;&#127475; Malayalam (മലയാളം)</option>
+              <option value="pa">&#127470;&#127475; Punjabi (ਪੰਜਾਬੀ)</option>
+            </optgroup>
+            <optgroup label="&#127757; Global Languages Suite (6 International Languages)">
+              <option value="es">&#127466;&#127488; Spanish (Español)</option>
+              <option value="fr">&#127467;&#127479; French (Français)</option>
+              <option value="de">&#127465;&#127466; German (Deutsch)</option>
+              <option value="ja">&#127471;&#127477; Japanese (日本語)</option>
+              <option value="zh">&#127464;&#127475; Chinese (中文)</option>
+              <option value="it">&#127470;&#127481; Italian (Italiano)</option>
+            </optgroup>
+          </select>
+          <span class="lang-speed-chip text-accent" id="transSpeedChip">&lt;0.1 ms ENGINE</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Dual-Line Glowing Subtitle Caption Display -->
+    <div class="subtitles-display-container glowing-caption-stage">
+      <!-- Original English Speech (ASR) -->
+      <div class="subtitle-line-box source-box">
+        <div class="sub-header-bar">
+          <div class="sub-lang-tag">
+            <span class="speech-vad-indicator" id="speechVadDot"></span>
+            <span class="sub-lang-label">ORIGINAL SPEECH (ENGLISH ASR STREAM)</span>
+          </div>
+          <div class="sub-meta-tags">
+            <span class="sub-badge-asr">16kHz PHONETIC ASR</span>
+            <span class="sub-time-tag" id="subTimeline">00:00.00</span>
+          </div>
+        </div>
+        <div class="subtitle-text-content glowing-source-text" id="subOriginalText">Waiting for audio stream to transcribe speech...</div>
+      </div>
+
+      <!-- Translated Line with Native Script Display -->
+      <div class="subtitle-line-box target-box">
+        <div class="sub-header-bar">
+          <div class="sub-lang-tag">
+            <span class="target-flag-icon" id="subTargetFlag">&#127470;&#127475;</span>
+            <span class="sub-lang-label" id="subTargetName">TRANSLATED (HINDI &middot; हिन्दी)</span>
+          </div>
+          <div class="sub-meta-tags">
+            <span class="badge-sub">EDGE AI TRANSLATION</span>
+            <span class="sub-badge-speed">&lt;0.1 ms LATENCY</span>
+          </div>
+        </div>
+        <div class="subtitle-text-content translated-script glowing-target-text" id="subTranslatedText">ध्वनि स्ट्रीम की प्रतीक्षा की जा रही है...</div>
+      </div>
+    </div>
+
+    <!-- Subtitles Telemetry Footer Bar -->
+    <div class="subtitles-footer-bar">
+      <div class="sub-metric-item">
+        <span class="sub-metric-lbl">VAD CONFIDENCE:</span>
+        <span class="sub-metric-val text-accent" id="subVadConf">98.5%</span>
+      </div>
+      <div class="sub-metric-item">
+        <span class="sub-metric-lbl">STREAM TIMELINE:</span>
+        <span class="sub-metric-val text-cyan">Continuous Non-Stalling Sync</span>
+      </div>
+      <div class="sub-metric-item">
+        <span class="sub-metric-lbl">ACCUMULATED SENTENCES:</span>
+        <span class="sub-metric-val text-accent" id="subSentenceCount">1 segment</span>
+      </div>
+      <div class="sub-metric-item">
+        <span class="sub-metric-lbl">NATIVE TYPOGRAPHY:</span>
+        <span class="sub-metric-val">100% Script-Pure Unicode</span>
+      </div>
+    </div>
+
+    <!-- Interactive Live Translate & Custom Speech Testbench Box -->
+    <div class="live-translate-testbench-panel">
+      <div class="testbench-header-row">
+        <div class="tb-title-group">
+          <span class="tb-badge">&#9889; INTERACTIVE LIVE TRANSLATE &amp; CUSTOM SPEECH TESTBENCH</span>
+          <span class="tb-sub">Type or speak any custom text to test instant zero-cloud multilingual translation across 15 languages:</span>
+        </div>
+      </div>
+
+      <div class="live-translate-input-row">
+        <div class="input-with-icon">
+          <span class="input-lead-icon">&#9997;&#65039;</span>
+          <input type="text" id="liveTranslateInput" class="custom-input live-text-input" placeholder="Type or speak any custom text (e.g. 'Hello and welcome', 'Audio denoising active', 'crystal clean voice')..." />
+        </div>
+        <button id="btnLiveTranslateMic" class="btn btn-mic-speak" title="Speak custom text using Web Speech Recognition">
+          <span class="mic-speak-icon">&#127908;</span> SPEAK
+        </button>
+        <button id="btnLiveTranslate" class="btn btn-translate-action" title="Translate instantly">
+          <span class="action-icon">&#9889;</span> TRANSLATE
+        </button>
+      </div>
+
+      <!-- Quick Prompt Chips -->
+      <div class="prompt-chips-row">
+        <span class="chips-label">QUICK PROMPTS:</span>
+        <button class="btn-prompt-chip" data-text="Hello and welcome to NVIDIA Broadcast studio.">&#128075; Welcome Studio</button>
+        <button class="btn-prompt-chip" data-text="NVIDIA RTX AI engine isolating crystal clean speech in real time.">&#128640; RTX AI Engine</button>
+        <button class="btn-prompt-chip" data-text="Audio denoising active with crisp voice clarity.">&#128142; Voice Clarity</button>
+        <button class="btn-prompt-chip" data-text="Tensor core neural network inference completed.">&#9889; Tensor Core</button>
+        <button class="btn-prompt-chip" data-text="crystal clean voice">&#10024; Clean Voice</button>
+        <button class="btn-prompt-chip" data-text="noise reduction">&#128263; Noise Reduction</button>
+      </div>
+
+      <!-- Instant Translation Result Box -->
+      <div class="live-translate-result-card" id="liveTranslateResultCard">
+        <div class="result-header-bar">
+          <div class="res-title-tag">
+            <span class="res-flag" id="liveTranslateFlag">&#127470;&#127475;</span>
+            <span class="res-label" id="liveTranslateTargetBadge">HINDI (हिन्दी) &middot; TRANSLATION RESULT</span>
+          </div>
+          <span class="res-latency-chip text-accent" id="liveTranslateLatency">0.038 ms LATENCY</span>
+        </div>
+        <div class="live-translate-output-text translated-script glowing-target-text" id="liveTranslateOutput">
+          नमस्ते और एनवीडिया ब्रॉडकास्ट स्टूडियो में आपका स्वागत है।
+        </div>
+      </div>
+    </div>
+
+    <!-- Integrated Multi-Track Studio Recorder & 1-Click Downloads Suite -->
+    <div class="hero-recorder-suite">
+      <div class="recorder-header-row">
+        <div class="rec-title-wrap">
+          <span class="section-label">&#128308; INTEGRATED MULTI-TRACK RECORDER &amp; 1-CLICK DOWNLOAD SUITE</span>
+          <span class="badge-rtx">MULTI-TRACK BROADCAST</span>
+        </div>
+        <div class="recorder-btn-wrap">
+          <button id="btnRecordToggle" class="btn btn-rec">
+            <span class="rec-dot" id="recDot"></span>
+            <span id="recBtnText">&#9210; START RECORDING</span>
+          </button>
+          <div class="rec-timer-badge" id="recTimerBadge">
+            <span class="rec-time-text" id="recTimerText">00:00</span>
+            <span class="rec-limit-text">/ 60s MAX</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="rec-progress-track">
+        <div class="rec-progress-fill" id="recProgressFill" style="width: 0%;"></div>
+      </div>
+
+      <div class="rec-status-info" id="recStatusInfo">
+        Ready to record clean voice, noisy audio, and live translated subtitles.
+      </div>
+
+      <!-- 1-Click Download Buttons -->
+      <div class="session-downloads-panel" id="sessionDownloadsPanel">
+        <label class="section-label sub-lbl">RECORDED SESSION 1-CLICK DOWNLOADS</label>
+        <div class="export-btn-grid">
+          <button id="btnDlCleanWav" class="btn btn-export btn-accent" title="Download crystal clean 16-bit 16kHz WAV">
+            <span class="export-icon">&#128142;</span> CLEAN WAV
+          </button>
+          <button id="btnDlNoisyWav" class="btn btn-export btn-warning" title="Download raw noisy input WAV">
+            <span class="export-icon">&#127786;&#65039;</span> RAW NOISY WAV
+          </button>
+          <button id="btnDlDeltaWav" class="btn btn-export btn-purple" title="Download subtracted noise delta WAV">
+            <span class="export-icon">&#128465;&#65039;</span> NOISE DELTA WAV
+          </button>
+          <button id="btnDlSrt" class="btn btn-export btn-cyan" title="Download bilingual SRT subtitles with timestamps">
+            <span class="export-icon">&#128196;</span> SUBTITLES (.SRT)
+          </button>
+          <button id="btnDlTxt" class="btn btn-export" title="Download session transcript and translated text">
+            <span class="export-icon">&#128221;</span> TRANSCRIPT (.TXT)
+          </button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+    </div>
+
+    <!-- VIEW 2: STUDIO EQ & DYNAMICS WORKSPACE -->
+    <div class="workspace-view" id="viewEqSuite">
+      <div class="standalone-suite-grid">
+              <div class="panel-card eq-sculptor-panel" id="eqSculptorSection">
+        <div class="section-header-flex">
+          <div class="suite-title-group">
+            <div class="brand-badge-row">
+              <span class="badge-rtx">PARAMETRIC EQ</span>
+              <span class="badge-new">OPTION B</span>
+            </div>
+            <label class="section-label"><span class="title-icon">&#127918;</span> 5-BAND STUDIO PARAMETRIC EQ SCULPTOR</label>
+          </div>
+          <div class="dual-toggle-wrap">
+            <label class="switch switch-sm">
+              <input type="checkbox" id="toggleEqMaster">
+              <span class="slider round"></span>
+            </label>
+            <span class="badge-new" id="badgeEqState">BYPASS</span>
+          </div>
+        </div>
+        <p class="export-desc">Interactive frequency response sculptor with draggable curve nodes &amp; studio broadcast presets:</p>
+
+        <!-- EQ 1-Click Broadcast Presets Row -->
+        <div class="eq-presets-row">
+          <span class="eq-preset-label">STUDIO PRESETS:</span>
+          <div class="eq-presets-group">
+            <button class="btn btn-eq-preset" data-preset="podcast_warmth">&#127908; Podcast Warmth</button>
+            <button class="btn btn-eq-preset" data-preset="broadcast_voice">&#128251; Broadcast Voice</button>
+            <button class="btn btn-eq-preset" data-preset="vocal_clarity">&#128142; Vocal Clarity</button>
+            <button class="btn btn-eq-preset" data-preset="hum_rumble_notch">&#9889; Hum Notch</button>
+            <button class="btn btn-eq-preset active" data-preset="flat">&#9878;&#65039; Flat Bypass</button>
+          </div>
+        </div>
+
+        <!-- Interactive EQ Curve Canvas -->
+        <div class="eq-canvas-container">
+          <canvas id="canvasEqCurve" width="680" height="200"></canvas>
+          <div class="eq-freq-scale-labels">
+            <span>20Hz</span>
+            <span>100Hz</span>
+            <span>500Hz</span>
+            <span>1kHz</span>
+            <span>5kHz</span>
+            <span>10kHz</span>
+            <span>16kHz</span>
+          </div>
+        </div>
+
+        <!-- 5-Band Interactive Controls & Node Readouts -->
+        <div class="eq-bands-grid">
+          <div class="eq-band-card" data-band="0">
+            <div class="band-header">
+              <span class="band-title">BAND 1 &middot; HPF</span>
+              <span class="band-type-tag">High-Pass</span>
+            </div>
+            <div class="band-param-row">
+              <span class="param-lbl">Freq:</span>
+              <span class="param-val" id="eqBand0Freq">60 Hz</span>
+            </div>
+            <div class="band-param-row">
+              <span class="param-lbl">Q-Factor:</span>
+              <span class="param-val" id="eqBand0Q">0.71</span>
+            </div>
+          </div>
+
+          <div class="eq-band-card" data-band="1">
+            <div class="band-header">
+              <span class="band-title">BAND 2 &middot; LOW SHELF</span>
+              <span class="band-type-tag">Low-Shelf</span>
+            </div>
+            <div class="band-param-row">
+              <span class="param-lbl">Freq:</span>
+              <span class="param-val" id="eqBand1Freq">200 Hz</span>
+            </div>
+            <div class="band-param-row">
+              <span class="param-lbl">Gain:</span>
+              <span class="param-val text-accent" id="eqBand1Gain">0.0 dB</span>
+            </div>
+          </div>
+
+          <div class="eq-band-card" data-band="2">
+            <div class="band-header">
+              <span class="band-title">BAND 3 &middot; MID BELL</span>
+              <span class="band-type-tag">Bell</span>
+            </div>
+            <div class="band-param-row">
+              <span class="param-lbl">Freq:</span>
+              <span class="param-val" id="eqBand2Freq">1000 Hz</span>
+            </div>
+            <div class="band-param-row">
+              <span class="param-lbl">Gain:</span>
+              <span class="param-val text-accent" id="eqBand2Gain">0.0 dB</span>
+            </div>
+          </div>
+
+          <div class="eq-band-card" data-band="3">
+            <div class="band-header">
+              <span class="band-title">BAND 4 &middot; PRESENCE</span>
+              <span class="band-type-tag">Bell</span>
+            </div>
+            <div class="band-param-row">
+              <span class="param-lbl">Freq:</span>
+              <span class="param-val" id="eqBand3Freq">3500 Hz</span>
+            </div>
+            <div class="band-param-row">
+              <span class="param-lbl">Gain:</span>
+              <span class="param-val text-accent" id="eqBand3Gain">0.0 dB</span>
+            </div>
+          </div>
+
+          <div class="eq-band-card" data-band="4">
+            <div class="band-header">
+              <span class="band-title">BAND 5 &middot; HIGH AIR</span>
+              <span class="band-type-tag">High-Shelf</span>
+            </div>
+            <div class="band-param-row">
+              <span class="param-lbl">Freq:</span>
+              <span class="param-val" id="eqBand4Freq">8000 Hz</span>
+            </div>
+            <div class="band-param-row">
+              <span class="param-lbl">Gain:</span>
+              <span class="param-val text-accent" id="eqBand4Gain">0.0 dB</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===================================================================== -->
+      <!-- POLAR LISSAJOUS VECTORSCOPE & STEREO PHASE COHERENCE RADAR            -->
+      <!-- ===================================================================== -->
+
+              <div class="panel-card studio-suite-panel" id="studioSuiteSection">
+        <div class="section-header-flex">
+          <div class="suite-title-group">
+            <div class="brand-badge-row">
+              <span class="badge-rtx">STUDIO SUITE</span>
+              <span class="badge-sub">OPTION A</span>
+            </div>
+            <label class="section-label"><span class="title-icon">&#127963;&#65039;</span> STUDIO BROADCAST SOUND QUALITY &amp; DEREVERB</label>
+          </div>
+          <div class="dual-toggle-wrap">
+            <label class="switch switch-sm">
+              <input type="checkbox" id="toggleStudioSuite">
+              <span class="slider round"></span>
+            </label>
+            <span class="badge-new" id="badgeStudioState">BYPASS</span>
+          </div>
+        </div>
+        <p class="export-desc">Acoustic room reflection cancellation, sibilance de-essing, dynamic leveling &amp; limiter:</p>
+
+        <!-- Room De-Reverberator Slider -->
+        <div class="studio-control-group">
+          <div class="control-header-row">
+            <label class="control-label" for="sliderDereverb">&#127963;&#65039; ROOM DE-REVERBERATION (RT60 ECHO REMOVAL):</label>
+            <span class="control-val text-accent" id="dereverbValue">0% (Bypass)</span>
+          </div>
+          <input type="range" id="sliderDereverb" min="0" max="100" value="0" step="5" class="range-slider">
+          <div class="studio-hints-row">
+            <span>0% Direct Mic</span>
+            <span>30% Living Room</span>
+            <span>60% Large Hall</span>
+            <span>100% Dry Booth</span>
+          </div>
+        </div>
+
+        <!-- Studio Modules 3-Column Grid -->
+        <div class="studio-modules-grid">
+          <!-- Dynamic Range Compressor -->
+          <div class="studio-module-card">
+            <div class="module-header">
+              <label class="module-title">&#127946; BROADCAST COMPRESSOR</label>
+              <input type="checkbox" id="toggleCompressor" checked class="module-chk">
+            </div>
+            <p class="module-sub">Soft-knee vocal leveler (-18 dBFS threshold, 3.5:1 ratio).</p>
+            <div class="meter-row">
+              <span class="meter-lbl">GAIN REDUCTION:</span>
+              <span class="meter-num text-warning" id="compGrVal">0.0 dB</span>
+            </div>
+          </div>
+
+          <!-- Sibilance De-Esser -->
+          <div class="studio-module-card">
+            <div class="module-header">
+              <label class="module-title">&#127908; SIBILANCE DE-ESSER</label>
+              <input type="checkbox" id="toggleDeesser" checked class="module-chk">
+            </div>
+            <p class="module-sub">4.5 - 7.5 kHz dynamic bandpass sibilance suppression.</p>
+            <div class="meter-row">
+              <span class="meter-lbl">SIBILANCE RED:</span>
+              <span class="meter-num text-cyan" id="deessRedVal">0.0 dB</span>
+            </div>
+          </div>
+
+          <!-- Analog Warmth & Limiter -->
+          <div class="studio-module-card">
+            <div class="module-header">
+              <label class="module-title">&#128251; TAPE WARMTH &amp; LIMITER</label>
+              <input type="checkbox" id="toggleWarmth" checked class="module-chk">
+            </div>
+            <p class="module-sub">Analog tube/tape harmonic warmth + -1.0 dBFS ceiling.</p>
+            <div class="meter-row">
+              <span class="meter-lbl">CEILING:</span>
+              <span class="meter-num text-accent">-1.0 dBFS</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===================================================================== -->
+      <!-- OPTION B: 5-BAND STUDIO PARAMETRIC EQ SCULPTOR                        -->
+      <!-- ===================================================================== -->
+
+      </div>
+    </div>
+
+    <!-- VIEW 3: POLAR VECTORSCOPE & ACOUSTIC QUALITY WORKSPACE -->
+    <div class="workspace-view" id="viewVectorscope">
+      <div class="standalone-dual-grid">
+              <div class="panel-card vectorscope-panel" id="vectorscopeSection">
+        <div class="section-header-flex">
+          <div class="suite-title-group">
+            <div class="brand-badge-row">
+              <span class="badge-rtx">PHASE RADAR</span>
+              <span class="badge-sub">ACOUSTIC COHERENCE</span>
+            </div>
+            <label class="section-label"><span class="title-icon">&#9775;</span> POLAR LISSAJOUS VECTORSCOPE</label>
+          </div>
+          <span class="status-tag tag-good" id="vectorscopeStatusBadge">&#128994; ROCK SOLID PHASE (+1.0)</span>
+        </div>
+        <p class="export-desc">Real-time 45&deg; Lissajous orbit radar, mono compatibility metric &amp; phase correlation index:</p>
+
+        <div class="vectorscope-content-grid">
+          <!-- Polar Radar Canvas -->
+          <div class="vectorscope-radar-wrap">
+            <canvas id="canvasVectorscope" width="240" height="240"></canvas>
+            <div class="radar-axes-legend">
+              <span class="axis-lbl-top">+M (Mid / Center)</span>
+              <span class="axis-lbl-left">-S (Left)</span>
+              <span class="axis-lbl-right">+S (Right)</span>
+              <span class="axis-lbl-bottom">-M (Anti-Phase)</span>
+            </div>
+          </div>
+
+          <!-- Phase & Mono Compatibility Meters -->
+          <div class="vectorscope-metrics-col">
+            <!-- Phase Correlation Index [-1.0, +1.0] -->
+            <div class="phase-meter-card">
+              <div class="meter-labels-row">
+                <span class="meter-title">PEARSON PHASE CORRELATION:</span>
+                <span class="meter-val text-accent" id="phaseCorrVal">+0.98</span>
+              </div>
+              <div class="phase-bar-track">
+                <div class="phase-center-marker"></div>
+                <div class="phase-bar-fill" id="phaseBarFill" style="width: 98%;"></div>
+              </div>
+              <div class="phase-scale-row">
+                <span class="text-danger">-1.0 (Invert)</span>
+                <span class="text-dim">0.0 (Wide)</span>
+                <span class="text-success">+1.0 (Mono)</span>
+              </div>
+            </div>
+
+            <!-- Mono Compatibility Percentage -->
+            <div class="phase-meter-card">
+              <div class="meter-labels-row">
+                <span class="meter-title">MONO BROADCAST COMPATIBILITY:</span>
+                <span class="meter-val text-cyan" id="monoCompatVal">98.9%</span>
+              </div>
+              <div class="meter-track">
+                <div class="meter-fill fill-match" id="monoCompatBar" style="width: 98.9%;"></div>
+              </div>
+            </div>
+
+            <!-- Stereo Width Ratio -->
+            <div class="stat-pills-row">
+              <div class="stat-pill-item">
+                <span class="pill-lbl">Stereo Width (S/M):</span>
+                <span class="pill-val text-accent" id="stereoWidthVal">0.14</span>
+              </div>
+              <div class="stat-pill-item">
+                <span class="pill-lbl">Acoustic Spatial Field:</span>
+                <span class="pill-val text-success" id="spatialFieldVal">Focused Center</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===================================================================== -->
+      <!-- MULTI-FILE BATCH BENCHMARK STUDIO                                     -->
+      <!-- ===================================================================== -->
+
+        <div class="panel-card">
+                <!-- ITU-T P.835 Perceptual Voice Quality (DNSMOS) -->
+      <div class="dnsmos-panel">
+        <div class="section-header-flex">
+          <label class="section-label">PERCEPTUAL VOICE QUALITY (DNSMOS P.835)</label>
+          <span class="badge-sub">ITU-T MOS (1.0 &mdash; 5.0)</span>
+        </div>
+        <div class="dnsmos-grid">
+          <div class="dnsmos-card highlight-sig">
+            <span class="dnsmos-label">SPEECH SIG</span>
+            <span class="dnsmos-val text-accent" id="dnsmosSig">4.72</span>
+            <span class="dnsmos-sub">MOS-SIG</span>
+          </div>
+          <div class="dnsmos-card highlight-bak">
+            <span class="dnsmos-label">BACKGROUND BAK</span>
+            <span class="dnsmos-val text-success" id="dnsmosBak">4.85</span>
+            <span class="dnsmos-sub">MOS-BAK</span>
+          </div>
+          <div class="dnsmos-card highlight-ovrl">
+            <span class="dnsmos-label">OVERALL OVRL</span>
+            <span class="dnsmos-val text-cyan" id="dnsmosOvrl">4.74</span>
+            <span class="dnsmos-sub">MOS-OVRL</span>
+          </div>
+          <div class="dnsmos-card highlight-stoi">
+            <span class="dnsmos-label">INTELLIGIBILITY</span>
+            <span class="dnsmos-val text-purple" id="dnsmosStoi">0.95</span>
+            <span class="dnsmos-sub">STOI (0&ndash;1)</span>
+          </div>
+        </div>
+      </div>
+
+
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW 4: MULTI-FILE BATCH BENCHMARK WORKSPACE -->
+    <div class="workspace-view" id="viewBatch">
+      <div class="standalone-suite-grid">
+              <div class="panel-card batch-benchmark-panel" id="batchBenchmarkSection">
+        <div class="section-header-flex">
+          <div class="suite-title-group">
+            <div class="brand-badge-row">
+              <span class="badge-rtx">BATCH TESTBENCH</span>
+              <span class="badge-new">AUDIO AUDIT SUITE</span>
+            </div>
+            <label class="section-label"><span class="title-icon">&#128202;</span> MULTI-FILE BATCH BENCHMARK STUDIO</label>
+          </div>
+          <button id="btnRunBatchBenchmark" class="btn btn-accent btn-sm">
+            <span class="btn-icon">&#9658;</span> RUN BATCH BENCHMARK MATRIX
+          </button>
+        </div>
+        <p class="export-desc">Simulate and evaluate full noise matrix (8 conditions &times; 3 SNR levels &times; 3 precision modes):</p>
+
+        <!-- Batch Benchmark Progress -->
+        <div class="batch-progress-wrap hidden" id="batchProgressWrap">
+          <div class="batch-progress-bar">
+            <div class="batch-progress-fill" id="batchProgressFill" style="width: 0%;"></div>
+          </div>
+          <span class="batch-progress-text" id="batchProgressText">Processing test 0 of 24...</span>
+        </div>
+
+        <!-- Summary Stats Cards -->
+        <div class="batch-summary-grid hidden" id="batchSummaryGrid">
+          <div class="batch-card">
+            <span class="batch-lbl">PASS RATE</span>
+            <span class="batch-val text-success" id="batchPassRate">100%</span>
+          </div>
+          <div class="batch-card">
+            <span class="batch-lbl">MEAN SNR GAIN</span>
+            <span class="batch-val text-accent" id="batchMeanSnr">+12.8 dB</span>
+          </div>
+          <div class="batch-card">
+            <span class="batch-lbl">MAX SNR GAIN</span>
+            <span class="batch-val text-cyan" id="batchMaxSnr">+26.7 dB</span>
+          </div>
+          <div class="batch-card">
+            <span class="batch-lbl">MEAN P95 LATENCY</span>
+            <span class="batch-val text-info" id="batchMeanLatency">1.45 ms</span>
+          </div>
+          <div class="batch-card">
+            <span class="batch-lbl">AUDIT VERDICT</span>
+            <span class="batch-val tag-good" id="batchVerdict">PASSED</span>
+          </div>
+        </div>
+
+        <!-- Download Buttons -->
+        <div class="batch-actions-row hidden" id="batchActionsRow">
+          <button id="btnDownloadBatchJson" class="btn btn-export btn-accent">
+            &#128229; DOWNLOAD AUDIT REPORT (.JSON)
+          </button>
+          <button id="btnDownloadBatchHtml" class="btn btn-export btn-cyan">
+            &#128196; DOWNLOAD HTML AUDIT (.HTML)
+          </button>
+        </div>
+
+        <!-- Results Table -->
+        <div class="batch-table-wrap hidden" id="batchTableWrap">
+          <table class="batch-table" id="batchResultsTable">
+            <thead>
+              <tr>
+                <th>Profile</th>
+                <th>Target SNR</th>
+                <th>Precision</th>
+                <th>In SNR</th>
+                <th>Out SNR</th>
+                <th>&Delta; Gain</th>
+                <th>P50 Latency</th>
+                <th>P95 Latency</th>
+                <th>Phase Correl</th>
+                <th>Mono Compat</th>
+                <th>Verdict</th>
+              </tr>
+            </thead>
+            <tbody id="batchTableBody">
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+
+      </div>
+    </div>
+
+    <!-- VIEW 5: HARDWARE PROFILER & MULTI-PRECISION TELEMETRY -->
+    <div class="workspace-view" id="viewTelemetry">
+      <div class="standalone-suite-grid">
+        <div class="panel-card">
+                <!-- Multi-Precision Engine Section -->
+      <div class="precision-section">
+        <h2 class="panel-title"><span class="title-icon">&#9879;</span> MULTI-PRECISION ENGINE</h2>
+        <div class="precision-toggle-group">
+          <button class="btn btn-prec active" data-prec="FP32">
+            <span class="prec-title">FP32</span>
+            <span class="prec-desc">Single Precision</span>
+          </button>
+          <button class="btn btn-prec" data-prec="FP16">
+            <span class="prec-title">FP16</span>
+            <span class="prec-desc">Half Precision</span>
+          </button>
+          <button class="btn btn-prec" data-prec="INT8">
+            <span class="prec-title">INT8</span>
+            <span class="prec-desc">Symmetric Quant</span>
+          </button>
+        </div>
+
+        <div class="precision-metrics-grid">
+          <div class="metric-box">
+            <span class="metric-label">ACTIVE MODE</span>
+            <span class="metric-val text-accent" id="precModeVal">FP32</span>
+          </div>
+          <div class="metric-box">
+            <span class="metric-label">WEIGHT MEMORY</span>
+            <span class="metric-val" id="precMemVal">162.0 KB</span>
+          </div>
+          <div class="metric-box">
+            <span class="metric-label">COMPRESSION</span>
+            <span class="metric-val" id="precCompVal">0.0%</span>
+          </div>
+          <div class="metric-box">
+            <span class="metric-label">QUANT SQNR</span>
+            <span class="metric-val" id="precSqnrVal">&infin; dB</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===================================================================== -->
+      <!-- PHASE 5 CROWN JEWEL: LIVE DUAL-MODEL A/B ARENA & REAL-TIME CROSSFADER -->
+      <!-- ===================================================================== -->
+
+                <div class="dual-model-panel panel-card" id="dualModelSection">
+        <div class="section-header-flex">
+          <label class="section-label">&#9889; DUAL-MODEL A/B ARENA &amp; CROSSFADER</label>
+          <div class="dual-toggle-wrap">
+            <label class="switch switch-sm">
+              <input type="checkbox" id="toggleDualModel">
+              <span class="slider round"></span>
+            </label>
+            <span class="badge-new" id="badgeDualState">OFFLINE</span>
+          </div>
+        </div>
+        <p class="export-desc">Blend between deep neural representation and classical analytical DSP in real time:</p>
+        
+        <div class="dual-crossfader-wrap">
+          <div class="crossfader-labels">
+            <span class="cross-label a active" id="labelModelA">MODEL A: NEURAL</span>
+            <span class="cross-blend-pct text-cyan" id="crossBlendPct">50% / 50%</span>
+            <span class="cross-label b" id="labelModelB">MODEL B: WIENER DSP</span>
+          </div>
+          <input type="range" id="sliderCrossfade" min="0" max="100" value="50" class="range-slider crossfade-slider">
+        </div>
+
+        <div class="dual-metrics-comparison-grid">
+          <div class="comp-col model-a-col">
+            <span class="comp-title text-accent">MODEL A: NEURAL NET</span>
+            <div class="comp-stat-row">
+              <span class="stat-name">Latency:</span>
+              <span class="stat-val" id="dualLatencyA">0.26 ms</span>
+            </div>
+            <div class="comp-stat-row">
+              <span class="stat-name">Model RAM:</span>
+              <span class="stat-val" id="dualRamA">162.0 KB</span>
+            </div>
+            <div class="comp-stat-row">
+              <span class="stat-name">SNR Gain:</span>
+              <span class="stat-val text-success" id="dualSnrA">+14.5 dB</span>
+            </div>
+          </div>
+
+          <div class="comp-divider">
+            <span class="vs-badge">VS</span>
+          </div>
+
+          <div class="comp-col model-b-col">
+            <span class="comp-title text-cyan">MODEL B: CLASSICAL DSP</span>
+            <div class="comp-stat-row">
+              <span class="stat-name">Latency:</span>
+              <span class="stat-val text-success" id="dualLatencyB">0.05 ms</span>
+            </div>
+            <div class="comp-stat-row">
+              <span class="stat-name">Model RAM:</span>
+              <span class="stat-val text-accent" id="dualRamB">0.0 KB</span>
+            </div>
+            <div class="comp-stat-row">
+              <span class="stat-name">SNR Gain:</span>
+              <span class="stat-val" id="dualSnrB">+11.2 dB</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===================================================================== -->
+      <!-- TARGET SPEAKER VOICE LOCK (TSE) WITH TRIGGER-WORD ACTIVATION           -->
+      <!-- ===================================================================== -->
+
+        </div>
+              <div class="telemetry-card panel-card">
+        <div class="card-header">
+          <h2 class="panel-title"><span class="title-icon">&#9201;</span> NVIDIA HARDWARE LATENCY PROFILER</h2>
+          <div class="budget-badge">REAL-TIME BUDGET: 20.0 ms</div>
+        </div>
+
+        <div class="telemetry-body">
+          <!-- Circular Headroom Gauge -->
+          <div class="headroom-gauge-container">
+            <svg class="gauge-svg" viewBox="0 0 160 160">
+              <circle class="gauge-bg" cx="80" cy="80" r="68" />
+              <circle class="gauge-bar" id="gaugeBar" cx="80" cy="80" r="68" />
+            </svg>
+            <div class="gauge-center-text">
+              <span class="gauge-value" id="headroomPctText">98.5%</span>
+              <span class="gauge-sub">BUDGET HEADROOM</span>
+              <span class="gauge-ms text-accent" id="headroomMsText">+19.7 ms</span>
+            </div>
+          </div>
+
+          <!-- 3-Stage Horizontal Stacked Latency Bar -->
+          <div class="stages-breakdown">
+            <div class="total-latency-display">
+              <span class="total-label">FRAME INFERENCE LATENCY:</span>
+              <span class="total-val text-accent" id="totalLatencyText">0.305 ms</span>
+            </div>
+
+            <div class="stage-bar-stacked">
+              <div class="stage-segment seg-pre" id="barPre" style="width: 18%;"></div>
+              <div class="stage-segment seg-tensor" id="barTensor" style="width: 66%;"></div>
+              <div class="stage-segment seg-synth" id="barSynth" style="width: 16%;"></div>
+            </div>
+
+            <div class="stage-legend">
+              <div class="legend-item">
+                <span class="legend-dot dot-pre"></span>
+                <span class="legend-name">Stage 1: Pre-processing (STFT, Windowing)</span>
+                <span class="legend-time text-cyan" id="timePre">0.055 ms</span>
+              </div>
+              <div class="legend-item">
+                <span class="legend-dot dot-tensor"></span>
+                <span class="legend-name">Stage 2: Tensor Compute (GRU-MaskNet GEMM)</span>
+                <span class="legend-time text-accent" id="timeTensor">0.201 ms</span>
+              </div>
+              <div class="legend-item">
+                <span class="legend-dot dot-synth"></span>
+                <span class="legend-name">Stage 3: Output Synthesis (iSTFT, Overlap-Add)</span>
+                <span class="legend-time text-purple" id="timeSynth">0.049 ms</span>
+              </div>
+            </div>
+
+            <!-- Rolling Percentiles Stats Table -->
+            <div class="stats-row">
+              <div class="stat-pill">
+                <span class="stat-lbl">MEDIAN (P50)</span>
+                <span class="stat-val" id="statP50">0.305 ms</span>
+              </div>
+              <div class="stat-pill">
+                <span class="stat-lbl">P95 LATENCY</span>
+                <span class="stat-val" id="statP95">0.450 ms</span>
+              </div>
+              <div class="stat-pill">
+                <span class="stat-lbl">P99 LATENCY</span>
+                <span class="stat-val" id="statP99">0.612 ms</span>
+              </div>
+              <div class="stat-pill">
+                <span class="stat-lbl">FPS CAPACITY</span>
+                <span class="stat-val text-accent" id="statThroughput">&gt;3000 FPS</span>
+              </div>
+            </div>
+
+            <!-- Edge AI GPU Energy & Efficiency Telemetry -->
+            <div class="energy-telemetry-row">
+              <div class="energy-card">
+                <span class="energy-icon">&#9889;</span>
+                <div class="energy-content">
+                  <span class="energy-label">GPU POWER DRAW</span>
+                  <span class="energy-val text-warning" id="energyPower">8.50 W</span>
+                </div>
+              </div>
+              <div class="energy-card">
+                <span class="energy-icon">&#128267;</span>
+                <div class="energy-content">
+                  <span class="energy-label">ENERGY PER FRAME</span>
+                  <span class="energy-val text-accent" id="energyUj">2.59 &mu;J</span>
+                </div>
+              </div>
+              <div class="energy-card">
+                <span class="energy-icon">&#128640;</span>
+                <div class="energy-content">
+                  <span class="energy-label">COMPUTE EFFICIENCY</span>
+                  <span class="energy-val text-cyan" id="energyEfficiency">386 FPS/W</span>
+                </div>
+              </div>
+              <div class="energy-card">
+                <span class="energy-icon">&#127777;&#65039;</span>
+                <div class="energy-content">
+                  <span class="energy-label">TEMPERATURE</span>
+                  <span class="energy-val" id="energyTemp">43.2 &deg;C</span>
+                </div>
+              </div>
+            <!-- Telemetry Session Export Suite -->
+            <div class="telemetry-export-bar">
+              <div class="export-label-wrap">
+                <span class="export-bar-label">&#128202; EXPORT HARDWARE TELEMETRY REPORT</span>
+                <span class="badge-sub">P50 / P95 / P99 &middot; STAGE BREAKDOWN &middot; SNR GAIN</span>
+              </div>
+              <div class="export-btn-actions">
+                <button id="btnExportJson2" class="btn btn-sm btn-accent" title="Export session latency percentiles &amp; metrics as JSON">&#128202; EXPORT JSON</button>
+                <button id="btnExportCsv2" class="btn btn-sm btn-cyan" title="Export session latency percentiles &amp; metrics as CSV spreadsheet">&#128200; EXPORT CSV</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+      </div>
+    </div>
+
+  </div>
+
+    <!-- Studio Footer -->
+  <footer class="app-footer">
+    <div class="footer-left">
+      <span class="nvidia-chip-tag">&#9670; NVIDIA ARCHITECTURE REFERENCE</span>
+      <span>TENSOR CORE OPTIMIZED &middot; 256 HOP &middot; 512 N_FFT &middot; 16 kHz MONO</span>
+    </div>
+    <div class="footer-right">
+      <span>RTX VOICE &amp; BROADCAST BENCHMARK COMPATIBLE</span>
+    </div>
+  </footer>
+
+  <script type="module" src="/static/js/main.js"></script>
+</body>
+</html>
