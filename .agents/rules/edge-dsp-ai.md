@@ -47,3 +47,17 @@ Never commit code without running automated tests, reviewing exact diffs, and ve
 ## 6. Concurrency & Per-Client Session Isolation
 All stateful telemetry estimators (such as `PerceptualQualityEstimator` maintaining moving-average DNSMOS state) must be instantiated per WebSocket client connection (`websocket_stream`). Never mutate shared global metric singletons from concurrent stream handlers.
 
+---
+
+## 7. High-Throughput Binary Audio Streaming & Vectorization
+- Audio streaming between client and server must prioritize zero-copy binary framing (`ADEN` protocol, 1,040-byte ingress / 3,872-byte egress) over JSON text payloads.
+- High-frequency array serialization in frame-rate loops must use vectorized NumPy transformations (`np.round().tolist()`, `.reshape().mean()`) rather than per-element Python list comprehensions to prevent GIL bottlenecks under multi-client concurrency.
+
+---
+
+## 8. Pitch Autocorrelation & Transient Immunity
+- Pitch autocorrelation across the full lag range (40--200 samples) must maintain a minimum 512-sample continuous rolling history buffer to guarantee $\ge 312$ samples of continuous overlap.
+- Valid sample counts must be tracked explicitly; never use `np.count_nonzero` heuristics to verify audio buffers.
+- Pitch candidates must satisfy interior local maximum constraints ($nccf[i] > nccf[i-1]$ and $nccf[i] > nccf[i+1]$ with peak threshold $\ge 0.40$). Aperiodic transient spikes (desk bumps, clicks) exhibit monotonically decaying correlations from boundary lags and must be rejected to prevent harmonic comb distortion.
+
+
