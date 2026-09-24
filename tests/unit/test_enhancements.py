@@ -124,6 +124,59 @@ def test_harmonic_enhancer():
     assert np.max(boosted_mask) > 0.5
 
 
+def test_harmonic_enhancer_transient_immunity():
+    """Verify that aperiodic transients (desk thuds, clicks, white noise) produce zero false pitch."""
+    enhancer = HarmonicEnhancer(sample_rate=16000)
+    t = np.arange(256) / 16000.0
+
+    # 1. 50 Hz low-frequency exponential decaying thud (desk bump)
+    thud = (np.sin(2 * np.pi * 50 * t) * np.exp(-t / 0.005)).astype(np.float32)
+    f0_thud, conf_thud = enhancer.estimate_f0(thud)
+    assert conf_thud == 0.0, f"Expected 0.0 confidence on thud, got {conf_thud}"
+    assert f0_thud == 0.0
+
+    # 2. Impulse click
+    click = np.zeros(256, dtype=np.float32)
+    click[100] = 5.0
+    f0_click, conf_click = enhancer.estimate_f0(click)
+    assert conf_click == 0.0
+    assert f0_click == 0.0
+
+    # 3. White noise burst
+    white = np.random.randn(256).astype(np.float32)
+    f0_white, conf_white = enhancer.estimate_f0(white)
+    assert conf_white == 0.0
+
+    # 4. Verify zero false harmonic comb boost on unvoiced/transient frames
+    base_mask = np.full(257, 0.4, dtype=np.float32)
+    unboosted_mask = enhancer.enhance_gain_mask(base_mask, f0_hz=f0_thud, confidence=conf_thud)
+    np.testing.assert_array_equal(unboosted_mask, base_mask)
+
+
+def test_harmonic_enhancer_512_history_overlap():
+    """Verify continuous streaming maintains >= 312 samples overlap across all lags (40-200)."""
+    enhancer = HarmonicEnhancer(sample_rate=16000)
+    assert enhancer.history_len == 512
+
+    # Verify overlap calculation across search range
+    for lag in range(enhancer.min_lag, enhancer.max_lag + 1):
+        overlap = enhancer.history_len - lag
+        assert overlap >= 312, f"Lag {lag} overlap {overlap} < 312 samples!"
+
+    # Stream continuous male voiced speech (100 Hz) across 2 frames
+    t1 = np.arange(256) / 16000.0
+    t2 = np.arange(256, 512) / 16000.0
+    v1 = (np.sin(2 * np.pi * 100 * t1) + 0.5 * np.sin(2 * np.pi * 200 * t1)).astype(np.float32)
+    v2 = (np.sin(2 * np.pi * 100 * t2) + 0.5 * np.sin(2 * np.pi * 200 * t2)).astype(np.float32)
+
+    enhancer.estimate_f0(v1)
+    f0_2, conf_2 = enhancer.estimate_f0(v2)
+
+    assert abs(f0_2 - 100.0) < 5.0, f"Expected ~100 Hz, got {f0_2:.2f} Hz"
+    assert conf_2 > 0.90, f"Expected high confidence, got {conf_2:.2f}"
+    assert enhancer._valid_samples == 512
+
+
 # ===========================================================================
 # 4. Real-Time Acoustic Noise Classifier Tests
 # ===========================================================================
