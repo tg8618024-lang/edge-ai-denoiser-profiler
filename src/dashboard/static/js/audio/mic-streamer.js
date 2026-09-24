@@ -19,6 +19,40 @@ export class MicStreamer {
     this.resampleQueue = [];
     this.resamplePhase = 0.0;
     this.lastInputSample = 0.0;
+    this.micSeq = 0;
+  }
+
+  /**
+   * Pack 256 Float32 PCM samples into a high-throughput 1,040-byte binary ADEN buffer.
+   */
+  packBinaryFrame(chunk256, langCode = "hi") {
+    const buffer = new ArrayBuffer(1040);
+    const view = new DataView(buffer);
+
+    // Magic bytes "ADEN"
+    view.setUint8(0, 0x41); // 'A'
+    view.setUint8(1, 0x44); // 'D'
+    view.setUint8(2, 0x45); // 'E'
+    view.setUint8(3, 0x4e); // 'N'
+
+    view.setUint8(4, 1);    // Version 1
+    view.setUint8(5, 1);    // Type 1 (Ingress Audio)
+    view.setUint16(6, 256, true); // 256 samples
+
+    this.micSeq = (this.micSeq + 1) >>> 0;
+    view.setUint32(8, this.micSeq, true);
+
+    // 4-byte language code
+    const lang = (langCode || "hi").slice(0, 4);
+    for (let i = 0; i < 4; i++) {
+      view.setUint8(12 + i, i < lang.length ? lang.charCodeAt(i) : 0);
+    }
+
+    // Float32 little-endian PCM
+    const f32View = new Float32Array(buffer, 16, 256);
+    f32View.set(chunk256);
+
+    return buffer;
   }
 
   getSpeechLocale(langCode) {
@@ -178,12 +212,9 @@ export class MicStreamer {
         while (this.resampleQueue.length >= 256) {
           const chunk = this.resampleQueue.splice(0, 256);
           if (this.wsClient) {
-            this.wsClient.send({
-              type: "audio_frame",
-              pcm: chunk,
-              transcript: this.latestMicTranscript || "",
-              target_lang: targetLangSelect ? targetLangSelect.value : "hi",
-            });
+            const targetLang = targetLangSelect ? targetLangSelect.value : "hi";
+            const binFrame = this.packBinaryFrame(chunk, targetLang);
+            this.wsClient.send(binFrame);
           }
         }
       };

@@ -48,6 +48,12 @@ from src.models.translator import MultilingualTranslator, TranslationResult
 from src.telemetry.prometheus_exporter import metrics_exporter, CONTENT_TYPE_LATEST
 from src.audio.vectorscope import PhaseCorrelationAnalyzer
 from src.audio.parametric_eq import ParametricEQ
+from src.dashboard.protocol import (
+    ADEN_MAGIC,
+    PROTOCOL_VERSION,
+    parse_ingress_binary,
+    pack_egress_binary,
+)
 
 app = FastAPI(
     title="Edge AI Neural Audio Denoiser & Latency Profiler",
@@ -1300,10 +1306,10 @@ async def websocket_stream(websocket: WebSocket):
             vad_stats = client_pipeline.get_vad_stats()
             metrics_exporter.update_vad_savings(vad_stats.get("compute_saved_pct", 0.0))
 
-            # Downsample 257 bins to 64 visualizer bands
-            in_vis = [float(np.mean(in_mag[b * 4 : (b + 1) * 4])) for b in range(64)]
-            out_vis = [float(np.mean(out_mag[b * 4 : (b + 1) * 4])) for b in range(64)]
-            mask_vis = [float(np.mean(mask_arr[b * 4 : (b + 1) * 4])) for b in range(64)]
+            # Downsample 257 bins to 64 visualizer bands (vectorized)
+            in_vis = np.mean(in_mag[:256].reshape(64, 4), axis=1).tolist()
+            out_vis = np.mean(out_mag[:256].reshape(64, 4), axis=1).tolist()
+            mask_vis = np.mean(mask_arr[:256].reshape(64, 4), axis=1).tolist()
 
             # Peak frequency detection across 0 - 8000 Hz
             peak_bin = int(np.argmax(in_mag[:64])) if len(in_mag) > 0 else 0
@@ -1412,9 +1418,9 @@ async def websocket_stream(websocket: WebSocket):
                 "vectorscope": state.vectorscope.analyze(out_frame),
                 "eq": client_pipeline.get_eq_curve(),
                 "audio": {
-                    "raw_noisy": [round(float(v), 4) for v in frame_m],
-                    "denoised": [round(float(v), 4) for v in out_frame],
-                    "noise_subtracted": [round(float(v), 4) for v in diff_frame],
+                    "raw_noisy": np.round(frame_m, 4).tolist(),
+                    "denoised": np.round(out_frame, 4).tolist(),
+                    "noise_subtracted": np.round(diff_frame, 4).tolist(),
                     "spec_in": in_vis,
                     "spec_out": out_vis,
                     "gain_mask": mask_vis,
@@ -1433,8 +1439,81 @@ async def websocket_stream(websocket: WebSocket):
             await asyncio.sleep(0.016)
 
     try:
+        binary_seq = 0
         while True:
-            data_text = await websocket.receive_text()
+            raw_msg = await websocket.receive()
+            if raw_msg.get("type") == "websocket.disconnect":
+                break
+
+            # -----------------------------------------------------------------
+            # Path A: High-Throughput Binary ADEN Audio Frames (Zero String Alloc)
+            # -----------------------------------------------------------------
+            if "bytes" in raw_msg and raw_msg["bytes"] is not None:
+                raw_bytes = raw_msg["bytes"]
+                if len(raw_bytes) >= 16 and raw_bytes[:4] == ADEN_MAGIC:
+                    try:
+                        pcm_data, seq_in, target_lang = parse_ingress_binary(raw_bytes)
+                        binary_seq = seq_in
+                    except Exception:
+                        continue
+
+                    client_profiler.start_frame()
+                    out_pcm = client_pipeline.process_frame(pcm_data, profiler=client_profiler)
+                    t_pre, t_tensor, t_synth, t_total = client_profiler.mark_synthesis_done()
+                    client_ring_buffer.append(t_pre, t_tensor, t_synth, t_total)
+
+                    in_spec = client_pipeline.last_input_spec
+                    out_spec = client_pipeline.last_output_spec
+                    gain_mask = client_pipeline.last_gain_mask
+                    precision_mode = client_pipeline.get_precision()
+
+                    # Downsample 257 bins to 64 visualizer bands
+                    in_mag = np.abs(in_spec) if in_spec is not None else np.zeros(257)
+                    out_mag = np.abs(out_spec) if out_spec is not None else np.zeros(257)
+                    mask_arr = gain_mask if gain_mask is not None else np.ones(257)
+
+                    in_vis = [float(np.mean(in_mag[b * 4 : (b + 1) * 4])) for b in range(64)]
+                    out_vis = [float(np.mean(out_mag[b * 4 : (b + 1) * 4])) for b in range(64)]
+                    mask_vis = [float(np.mean(mask_arr[b * 4 : (b + 1) * 4])) for b in range(64)]
+
+                    diff_pcm = pcm_data - out_pcm
+                    rms_in = float(np.sqrt(np.mean(pcm_data ** 2)))
+                    rms_out = float(np.sqrt(np.mean(out_pcm ** 2)))
+                    rms_noise = float(np.sqrt(np.mean(diff_pcm ** 2)))
+
+                    snr_delta = 10.0 * np.log10(max(1.0, (rms_in ** 2) / (rms_out ** 2 + 1e-9))) if rms_out > 1e-6 else 0.0
+                    noise_erased_pct = min(99.9, max(0.0, (1.0 - 10.0 ** (-max(0.0, snr_delta) / 10.0)) * 100.0)) if rms_noise > 0.001 else 0.0
+                    purity_score = min(100.0, max(50.0, 50.0 + (1.0 - min(1.0, rms_noise / (rms_in + 1e-6))) * 50.0))
+                    cur_intensity = client_pipeline.get_intensity()
+
+                    voice_qual = client_quality_evaluator.evaluate_frame(
+                        out_pcm, pcm_data, snr_delta, cur_intensity
+                    )
+
+                    # Pack binary egress frame (3,872 bytes)
+                    egress_bin = pack_egress_binary(
+                        seq=binary_seq,
+                        total_latency_ms=t_total,
+                        snr_delta_db=snr_delta,
+                        noise_erased_pct=noise_erased_pct,
+                        purity_score=purity_score,
+                        ovrl_mos=voice_qual.ovrl_mos,
+                        denoised_pcm=out_pcm,
+                        raw_noisy_pcm=pcm_data,
+                        diff_pcm=diff_pcm,
+                        in_vis=in_vis,
+                        out_vis=out_vis,
+                        mask_vis=mask_vis,
+                    )
+                    await websocket.send_bytes(egress_bin)
+                continue
+
+            # -----------------------------------------------------------------
+            # Path B: JSON Control Commands & Legacy Text Frames
+            # -----------------------------------------------------------------
+            data_text = raw_msg.get("text")
+            if not data_text:
+                continue
             msg = json.loads(data_text)
             msg_type = msg.get("type")
 
@@ -1687,9 +1766,10 @@ async def websocket_stream(websocket: WebSocket):
                     out_mag = np.abs(out_spec) if out_spec is not None else np.zeros(257)
                     mask_arr = gain_mask if gain_mask is not None else np.ones(257)
 
-                    in_vis = [float(np.mean(in_mag[b * 4 : (b + 1) * 4])) for b in range(64)]
-                    out_vis = [float(np.mean(out_mag[b * 4 : (b + 1) * 4])) for b in range(64)]
-                    mask_vis = [float(np.mean(mask_arr[b * 4 : (b + 1) * 4])) for b in range(64)]
+                    # Downsample 257 bins to 64 visualizer bands (vectorized)
+                    in_vis = np.mean(in_mag[:256].reshape(64, 4), axis=1).tolist()
+                    out_vis = np.mean(out_mag[:256].reshape(64, 4), axis=1).tolist()
+                    mask_vis = np.mean(mask_arr[:256].reshape(64, 4), axis=1).tolist()
 
                     headroom = max(0.0, 20.0 - t_total)
                     stats = client_ring_buffer.compute_stats()
@@ -1823,9 +1903,9 @@ async def websocket_stream(websocket: WebSocket):
                         "vectorscope": state.vectorscope.analyze(out_pcm),
                         "eq": client_pipeline.get_eq_curve(),
                         "audio": {
-                            "raw_noisy": [round(float(v), 4) for v in pcm_data[:256]],
-                            "denoised": [round(float(v), 4) for v in out_pcm],
-                            "noise_subtracted": [round(float(v), 4) for v in diff_pcm],
+                            "raw_noisy": np.round(pcm_data[:256], 4).tolist(),
+                            "denoised": np.round(out_pcm, 4).tolist(),
+                            "noise_subtracted": np.round(diff_pcm, 4).tolist(),
                             "spec_in": in_vis,
                             "spec_out": out_vis,
                             "gain_mask": mask_vis,

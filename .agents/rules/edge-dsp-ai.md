@@ -28,3 +28,22 @@ These rules govern all digital signal processing (DSP), neural network inference
 ## 3. Model Parity & Downstream Runtime Synchronization
 - Any re-training, weight re-calibration, or architecture modification on in-memory models (NumPy/PyTorch) must immediately trigger an automated re-export to edge deployment runtimes (`src/models/export_onnx.py`).
 - Pre-processing steps (e.g. log-magnitude epsilon, STFT window normalization, rumble attenuation) must match identically between Python inference pipelines and compiled ONNX execution graphs.
+
+---
+
+## 4. Engineering Workflow State Machine
+All code development and refactoring must strictly execute the 9-stage sequence:
+`Task → Inspect → Plan → Implement → Test → Review diff → Benchmark → Commit → Next task`.
+Never commit code without running automated tests, reviewing exact diffs, and verifying `evaluate.py` benchmarks (SNR gain >= 10.0 dB, latency <= 20.0 ms).
+
+---
+
+## 5. Web Audio Ingress Safety & Resampling
+- **Mute Gain Node**: Microphone capture nodes (`ScriptProcessorNode` or `AudioWorkletNode`) must connect to `audioCtx.destination` only via a 0-gain mute node (`gain = 0.0`) to prevent acoustic feedback screeching while maintaining browser processing clocks.
+- **Hardware Sample-Rate Downsampling**: When hardware audio runs at 44.1 kHz or 48 kHz, ingress audio must be resampled to 16,000 Hz using Catmull-Rom cubic interpolation with continuous fractional phase tracking across chunk boundaries, delivering exact 256-sample chunks to the backend.
+
+---
+
+## 6. Concurrency & Per-Client Session Isolation
+All stateful telemetry estimators (such as `PerceptualQualityEstimator` maintaining moving-average DNSMOS state) must be instantiated per WebSocket client connection (`websocket_stream`). Never mutate shared global metric singletons from concurrent stream handlers.
+
