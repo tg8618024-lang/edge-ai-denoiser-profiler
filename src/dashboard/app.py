@@ -1478,14 +1478,14 @@ async def websocket_stream(websocket: WebSocket):
                     gain_mask = client_pipeline.last_gain_mask
                     precision_mode = client_pipeline.get_precision()
 
-                    # Downsample 257 bins to 64 visualizer bands
                     in_mag = np.abs(in_spec) if in_spec is not None else np.zeros(257)
                     out_mag = np.abs(out_spec) if out_spec is not None else np.zeros(257)
                     mask_arr = gain_mask if gain_mask is not None else np.ones(257)
 
-                    in_vis = [float(np.mean(in_mag[b * 4 : (b + 1) * 4])) for b in range(64)]
-                    out_vis = [float(np.mean(out_mag[b * 4 : (b + 1) * 4])) for b in range(64)]
-                    mask_vis = [float(np.mean(mask_arr[b * 4 : (b + 1) * 4])) for b in range(64)]
+                    # Downsample 257 bins to 64 visualizer bands (vectorized)
+                    in_vis = np.mean(in_mag[:256].reshape(64, 4), axis=1).tolist()
+                    out_vis = np.mean(out_mag[:256].reshape(64, 4), axis=1).tolist()
+                    mask_vis = np.mean(mask_arr[:256].reshape(64, 4), axis=1).tolist()
 
                     diff_pcm = pcm_data - out_pcm
                     rms_in = float(np.sqrt(np.mean(pcm_data ** 2)))
