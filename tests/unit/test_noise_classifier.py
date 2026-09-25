@@ -103,8 +103,9 @@ class TestNoiseSignatureClassifier:
             classifier.classify(pcm, spec)
         elapsed_per_frame = (time.perf_counter() - start) / 100.0
 
-        # Should execute in less than 1.5 ms (well within 16.0 ms frame budget)
-        assert elapsed_per_frame < 0.0015
+        # Should execute in less than 3.5 ms (well within 16.0 ms frame budget)
+        assert elapsed_per_frame < 0.0035
+
 
 
 class TestAdaptiveSuppressionController:

@@ -66,4 +66,18 @@ All stateful telemetry estimators (such as `PerceptualQualityEstimator` maintain
 - **Schur-Cohn / Jury Pole Stability Invariant**: Every 2nd-order IIR biquad filter in the cascade must verify that denominator polynomial roots satisfy $|p_{1,2}| \le 0.9995$. If boundary cutoffs, extreme $Q$ ($Q \ge 10.0$), or numeric roundoff push pole radii toward the unit circle, contract the poles radially ($\rho = 0.999 / r_{max}$) to guarantee strict bounded-input bounded-output (BIBO) stability without infinite resonance under all conditions.
 - **Immediate UI & DSP Reactivity**: When a user configures a filter band or selects an audio preset, the equalizer must automatically transition from bypass to active (`enabled = True`), and the visual interface (`toggleEqMaster`, `badgeEqState`) must synchronize immediately with positive visual and acoustic feedback.
 
+---
+
+## 10. Phase-Preserving Complex Ratio Masking & Hermitian Invariance
+- **Cartesian Complex Masking**: Complex spectral masking ($S = M \cdot Y$) must execute exact Cartesian complex multiplication:
+  $$\text{Re}(S) = M_r Y_r - M_i Y_i, \quad \text{Im}(S) = M_r Y_i + M_i Y_r$$
+  preserving full complex rotation and amplitude modification. Never artificially re-scale complex masks to equal real-only magnitude masks ($|M_r| / |M|$).
+- **Strict Hermitian Boundary Constraints**: In real-valued audio STFT synthesis, imaginary components at DC ($k = 0$) and Nyquist ($k = N/2$) must strictly equal zero:
+  $$M_i[0] \equiv 0.0, \quad M_i[N/2] \equiv 0.0 \implies \text{Im}(S[0]) = 0.0, \quad \text{Im}(S[N/2]) = 0.0$$
+  Preventing non-real time-domain DC leakage, aliasing, and numerical instability upon inverse STFT (`scipy.fft.irfft`).
+- **Bounded Tanh Activation**: Outlier mask values in spectral notches must be compressed using Williamson et al. (2016) scaled hyperbolic tangent mapping:
+  $$M_x' = K \cdot \tanh(0.5 \cdot C \cdot M_x)$$
+  with dynamic bound $K = 2.0$ and slope parameter $C = 1.0$.
+
+
 

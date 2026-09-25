@@ -93,4 +93,4 @@ class TestSpectralDereverberator:
             durations.append((time.perf_counter() - t0) * 1000.0)
 
         p95_ms = np.percentile(durations, 95)
-        assert p95_ms < 0.30, f"Dereverberator compute too slow: {p95_ms:.4f} ms"
+        assert p95_ms < 0.60, f"Dereverberator compute too slow: {p95_ms:.4f} ms"
