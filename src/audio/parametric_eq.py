@@ -117,8 +117,35 @@ class BiquadFilter:
             b0, b1, b2, a0, a1, a2 = 1.0, 0.0, 0.0, 1.0, 0.0, 0.0
 
         if abs(a0) > 1e-9:
-            self.b = np.array([b0 / a0, b1 / a0, b2 / a0], dtype=np.float32)
-            self.a = np.array([1.0, a1 / a0, a2 / a0], dtype=np.float32)
+            b_norm = np.array([b0 / a0, b1 / a0, b2 / a0], dtype=np.float64)
+            a_norm = np.array([1.0, a1 / a0, a2 / a0], dtype=np.float64)
+
+            # Strict Schur-Cohn / Jury pole stability enforcement:
+            # Check roots of denominator polynomial z^2 + a1' z + a2' = 0
+            a1_val = float(a_norm[1])
+            a2_val = float(a_norm[2])
+            disc = a1_val * a1_val - 4.0 * a2_val
+
+            if disc >= 0.0:
+                sqrt_disc = np.sqrt(disc)
+                r_max = max(abs(-a1_val + sqrt_disc), abs(-a1_val - sqrt_disc)) / 2.0
+            else:
+                r_max = np.sqrt(max(0.0, a2_val))
+
+            if not np.isfinite(r_max) or r_max >= 0.9995:
+                # Contract poles strictly inside the unit circle (|p| <= 0.999)
+                scale = 0.999 / max(r_max if np.isfinite(r_max) else 1.0, 1e-4)
+                a_norm[1] *= scale
+                a_norm[2] *= scale * scale
+
+            # Verify triangular stability bounds
+            if abs(a_norm[2]) >= 0.9999 or (1.0 + a_norm[1] + a_norm[2]) <= 1e-4 or (1.0 - a_norm[1] + a_norm[2]) <= 1e-4:
+                a_norm[2] = np.clip(a_norm[2], -0.999, 0.999)
+                max_a1 = 0.999 + a_norm[2]
+                a_norm[1] = np.clip(a_norm[1], -max_a1, max_a1)
+
+            self.b = b_norm.astype(np.float32)
+            self.a = a_norm.astype(np.float32)
         else:
             self.b = np.array([1.0, 0.0, 0.0], dtype=np.float32)
             self.a = np.array([1.0, 0.0, 0.0], dtype=np.float32)
@@ -238,6 +265,7 @@ class ParametricEQ:
                 self.bands[band_index].filter_type = filter_type
             self.bands[band_index].set_params(freq_hz, gain_db, q, enabled)
             self.active_preset = "custom"
+            self.enabled = True
 
     def to_dict(self) -> Dict[str, Any]:
         """Return serialized state of EQ."""
@@ -275,6 +303,7 @@ class ParametricEQ:
                     enabled=p["enabled"],
                 )
         self.active_preset = key
+        self.enabled = (key != "flat")
         return True
 
     def reset(self) -> None:

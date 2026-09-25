@@ -142,6 +142,19 @@ export function drawEqCurve(curve = state.latestEqCurve) {
   });
 }
 
+export function activateEqUI(enabled = true) {
+  const toggleEqMaster = $("toggleEqMaster");
+  const badgeEqState = $("badgeEqState");
+  if (toggleEqMaster) {
+    toggleEqMaster.checked = enabled;
+  }
+  if (badgeEqState) {
+    badgeEqState.textContent = enabled ? "ACTIVE" : "BYPASS";
+    badgeEqState.style.background = enabled ? "#76B900" : "";
+    badgeEqState.style.color = enabled ? "#000" : "";
+  }
+}
+
 export function updateEqCurveUI(curve) {
   if (state.eqIsDragging) return;
   state.latestEqCurve = curve;
@@ -171,15 +184,8 @@ export function updateEqCurveUI(curve) {
     });
   }
 
-  const toggleEqMaster = $("toggleEqMaster");
-  const badgeEqState = $("badgeEqState");
-  if (curve.enabled !== undefined && toggleEqMaster) {
-    toggleEqMaster.checked = curve.enabled;
-    if (badgeEqState) {
-      badgeEqState.textContent = curve.enabled ? "ACTIVE" : "BYPASS";
-      badgeEqState.style.background = curve.enabled ? "#76B900" : "";
-      badgeEqState.style.color = curve.enabled ? "#000" : "";
-    }
+  if (curve.enabled !== undefined) {
+    activateEqUI(curve.enabled);
   }
 
   drawEqCurve(curve);
@@ -218,6 +224,7 @@ export function initParametricEq() {
 
       if (state.eqActiveBand >= 0) {
         state.eqIsDragging = true;
+        activateEqUI(true);
         eqBandCards.forEach((c, i) => {
           if (i === state.eqActiveBand) c.classList.add("selected");
           else c.classList.remove("selected");
@@ -261,11 +268,16 @@ export function initParametricEq() {
       if (state.eqIsDragging) {
         state.eqIsDragging = false;
         if (state.eqActiveBand >= 0) {
+          activateEqUI(true);
           configureEq({
             band_index: state.eqActiveBand,
             freq_hz: state.eqBands[state.eqActiveBand].freq,
             gain_db: state.eqBands[state.eqActiveBand].gain,
-          }).catch(console.error);
+          })
+            .then((data) => {
+              if (data && data.curve) updateEqCurveUI(data.curve);
+            })
+            .catch(console.error);
         }
       }
     });
@@ -276,6 +288,8 @@ export function initParametricEq() {
       const preset = btn.dataset.preset;
       eqPresetBtns.forEach((b) => b.classList.remove("active"));
       btn.classList.add("active");
+      const isFlat = preset === "flat";
+      activateEqUI(!isFlat);
       wsClient.send({ type: "set_eq_preset", preset });
       setEqPreset(preset)
         .then((data) => {

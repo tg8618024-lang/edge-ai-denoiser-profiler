@@ -100,8 +100,9 @@ export function initApp() {
         const simdBadge = $("simdBadge");
         const simdHardwareVal = $("simdHardwareVal");
         const tierName = data.simd.name || (data.simd.tier === 1 ? "Native C (AVX2/NEON)" : data.simd.tier === 2 ? "Numba LLVM JIT (AVX2/VNNI)" : "NumPy Fallback");
-        if (simdBadge) simdBadge.textContent = `⚡ TIER ${data.simd.tier}: ${tierName.toUpperCase()}`;
-        if (simdHardwareVal) simdHardwareVal.textContent = `Tier ${data.simd.tier}: ${tierName.split(' ')[0]}`;
+        const cleanName = tierName.replace(/^Tier\s*\d+:\s*/i, "");
+        if (simdBadge) simdBadge.textContent = `⚡ TIER ${data.simd.tier}: ${cleanName.toUpperCase()}`;
+        if (simdHardwareVal) simdHardwareVal.textContent = `Tier ${data.simd.tier}: ${cleanName.split(' ')[0]}`;
       }
     })
     .catch(() => {});

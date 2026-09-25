@@ -127,3 +127,46 @@ class TestParametricEQ:
         assert elapsed_ms < 0.75, f"Per-frame latency {elapsed_ms:.4f} ms exceeds 0.75 ms budget"
         assert np.all(np.isfinite(out))
         assert np.max(np.abs(out)) <= 1.0, "Output must be bounded without digital clipping"
+
+    def test_biquad_schur_cohn_pole_stability(self):
+        """All biquad filters must satisfy Schur-Cohn / Jury pole stability under extreme inputs."""
+        fs = 16000
+        extreme_freqs = [20.0, 50.0, 1000.0, 4000.0, 7200.0]
+        extreme_qs = [0.1, 0.707, 2.0, 8.0, 15.0]
+        extreme_gains = [-24.0, -12.0, 0.0, 12.0, 24.0]
+        filter_types = ["bell", "low_shelf", "high_shelf", "high_pass", "notch"]
+
+        for ftype in filter_types:
+            for fc in extreme_freqs:
+                for q in extreme_qs:
+                    for g in extreme_gains:
+                        filt = BiquadFilter(ftype, freq_hz=fc, gain_db=g, q=q, sample_rate=fs, enabled=True)
+                        # Verify denominator polynomial roots (poles) lie strictly inside unit circle
+                        poles = np.roots(filt.a)
+                        max_pole_r = np.max(np.abs(poles))
+                        assert max_pole_r <= 0.9995, f"Pole radius {max_pole_r:.6f} >= 1.0 for {ftype} fc={fc} q={q} g={g}"
+
+                        # Verify impulse response stability
+                        impulse = np.zeros(512, dtype=np.float32)
+                        impulse[0] = 1.0
+                        resp = filt.process(impulse)
+                        assert np.all(np.isfinite(resp)), f"Non-finite output in {ftype} impulse response"
+                        # Response must decay or remain bounded
+                        assert np.max(np.abs(resp[-64:])) < 10.0, f"Impulse response unstable for {ftype}"
+
+    def test_parametric_eq_reactive_activation(self):
+        """EQ must reactively enable on band configuration or non-flat presets."""
+        eq = ParametricEQ(sample_rate=16000, enabled=False)
+        assert eq.get_enabled() is False
+
+        # Configuring band should reactively activate EQ
+        eq.configure_band(2, freq_hz=1200.0, gain_db=3.0)
+        assert eq.get_enabled() is True
+
+        # Applying flat preset should set to bypass
+        eq.apply_preset("flat")
+        assert eq.get_enabled() is False
+
+        # Applying broadcast preset should reactively activate EQ
+        eq.apply_preset("podcast_warmth")
+        assert eq.get_enabled() is True

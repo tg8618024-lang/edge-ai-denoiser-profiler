@@ -60,4 +60,10 @@ All stateful telemetry estimators (such as `PerceptualQualityEstimator` maintain
 - Valid sample counts must be tracked explicitly; never use `np.count_nonzero` heuristics to verify audio buffers.
 - Pitch candidates must satisfy interior local maximum constraints ($nccf[i] > nccf[i-1]$ and $nccf[i] > nccf[i+1]$ with peak threshold $\ge 0.40$). Aperiodic transient spikes (desk bumps, clicks) exhibit monotonically decaying correlations from boundary lags and must be rejected to prevent harmonic comb distortion.
 
+---
+
+## 9. Biquad Pole Stability & Reactive Equalizer Control
+- **Schur-Cohn / Jury Pole Stability Invariant**: Every 2nd-order IIR biquad filter in the cascade must verify that denominator polynomial roots satisfy $|p_{1,2}| \le 0.9995$. If boundary cutoffs, extreme $Q$ ($Q \ge 10.0$), or numeric roundoff push pole radii toward the unit circle, contract the poles radially ($\rho = 0.999 / r_{max}$) to guarantee strict bounded-input bounded-output (BIBO) stability without infinite resonance under all conditions.
+- **Immediate UI & DSP Reactivity**: When a user configures a filter band or selects an audio preset, the equalizer must automatically transition from bypass to active (`enabled = True`), and the visual interface (`toggleEqMaster`, `badgeEqState`) must synchronize immediately with positive visual and acoustic feedback.
+
 
