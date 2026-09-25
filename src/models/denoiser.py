@@ -118,7 +118,9 @@ class GRUMaskNet:
             Predicted spectral gain mask G of shape (output_dim,) with values in [0.0, 1.0].
         """
         if hasattr(self, "precision_engine") and self.precision_engine.get_precision() != "FP32":
-            return self.precision_engine.forward_frame(log_mag)
+            mask = self.precision_engine.forward_frame(log_mag)
+            self.hidden_state = self.precision_engine.hidden_state.copy()
+            return mask
 
         x = np.asarray(log_mag, dtype=np.float32).ravel()
         if not np.all(np.isfinite(x)):
@@ -130,13 +132,11 @@ class GRUMaskNet:
         z1 = x @ self.W1 + self.b1
         a1 = np.maximum(z1, 0.0)
 
-        # Layer 2: Cho et al. (2014) GRU Gating (Reset gate, Candidate state, Update gate)
-        x_gru = a1 @ self.W2 + self.b2
-        h_gru = self.hidden_state @ self.W_rec
-        r_t = 1.0 / (1.0 + np.exp(-np.clip(x_gru + h_gru + 5.5, -15.0, 15.0)))
-        h_tilde = np.maximum(x_gru + r_t * h_gru, 0.0)
-        z_t = 1.0 / (1.0 + np.exp(-np.clip(x_gru + 5.5, -15.0, 15.0)))
-        h_t = (1.0 - z_t) * self.hidden_state + z_t * h_tilde
+        # Layer 2: Causal Recurrent Transition Layer
+        z2 = a1 @ self.W2 + self.b2
+        if self.W_rec is not None:
+            z2 += self.hidden_state @ self.W_rec
+        h_t = np.maximum(z2, 0.0)
 
         # Update persistent recurrent hidden state vector
         self.hidden_state = h_t.copy()
@@ -149,8 +149,8 @@ class GRUMaskNet:
         z3_clipped = np.clip(z3, -15.0, 15.0)
         mask = 1.0 / (1.0 + np.exp(-1.25 * z3_clipped))
 
-        # DC and sub-audible rumble attenuation (< 50 Hz, bins 0:2)
-        mask[0:2] = np.minimum(mask[0:2], 0.005)
+        # DC and sub-audible rumble attenuation (< 100 Hz, bins 0:4)
+        mask[0:4] = np.minimum(mask[0:4], 0.005)
 
         return mask.astype(np.float32)
 
@@ -174,13 +174,11 @@ class GRUMaskNet:
         z1 = x @ self.W1 + self.b1
         a1 = np.maximum(z1, 0.0)
 
-        # Cho et al. (2014) GRU Gating
-        x_gru = a1 @ self.W2 + self.b2
-        h_gru = self.hidden_state @ self.W_rec
-        r_t = 1.0 / (1.0 + np.exp(-np.clip(x_gru + h_gru + 5.5, -15.0, 15.0)))
-        h_tilde = np.maximum(x_gru + r_t * h_gru, 0.0)
-        z_t = 1.0 / (1.0 + np.exp(-np.clip(x_gru + 5.5, -15.0, 15.0)))
-        h_t = (1.0 - z_t) * self.hidden_state + z_t * h_tilde
+        # Layer 2: Causal Recurrent Transition Layer
+        z2 = a1 @ self.W2 + self.b2
+        if self.W_rec is not None:
+            z2 += self.hidden_state @ self.W_rec
+        h_t = np.maximum(z2, 0.0)
 
         self.hidden_state = h_t.copy()
         if hasattr(self, "precision_engine"):
@@ -196,6 +194,10 @@ class GRUMaskNet:
         hilb_quad = np.imag(hilbert(M_r)).astype(np.float32)
         transition_weight = 4.0 * M_r * (1.0 - M_r)
         M_i = -0.15 * transition_weight * np.tanh(hilb_quad)
+
+        # Strict Hermitian conjugate symmetry boundary constraints (DC and Nyquist must be purely real)
+        M_i[0] = 0.0
+        M_i[-1] = 0.0
 
         M_r = np.clip(M_r, -1.5, 1.5).astype(np.float32)
         M_i = np.clip(M_i, -1.5, 1.5).astype(np.float32)

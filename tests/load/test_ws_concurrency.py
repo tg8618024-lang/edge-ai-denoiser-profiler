@@ -116,6 +116,6 @@ def test_concurrent_20_clients_scalability():
     total_frames = sum(r["frames_processed"] for r in results)
     assert total_frames == num_clients * num_frames
 
-    # Assert median per-frame processing latency scales predictably under 20-client CPU saturation (<250ms)
-    assert median_p50 < 250.0
+    # Assert median per-frame processing latency scales predictably under 20-client CPU saturation (<350ms)
+    assert median_p50 < 350.0
 

@@ -78,6 +78,12 @@ All stateful telemetry estimators (such as `PerceptualQualityEstimator` maintain
 - **Bounded Tanh Activation**: Outlier mask values in spectral notches must be compressed using Williamson et al. (2016) scaled hyperbolic tangent mapping:
   $$M_x' = K \cdot \tanh(0.5 \cdot C \cdot M_x)$$
   with dynamic bound $K = 2.0$ and slope parameter $C = 1.0$.
+---
 
-
-
+## 11. Multi-Engine Computational Graph Parity & Recurrent Synchronization
+- **Exact Causal Equation Synchronization**: All execution backends—NumPy FP32 reference, C/SIMD integer kernels (`vpdpbusd`/`sdot`), Numba LLVM JIT, and compiled ONNX Runtime graphs—must evaluate the exact identical causal recurrent transition equations:
+  $$\mathbf{z}_2 = \mathbf{a}_1 \mathbf{W}_2 + \mathbf{b}_2 + \mathbf{h}_{t-1} \mathbf{W}_{\text{rec}}, \quad \mathbf{h}_t = \max(\mathbf{z}_2, 0.0)$$
+  Never alter recurrent gating formulations in one module (such as ad-hoc bias offsets or pseudo-gates) without exact cross-backend alignment.
+- **Continuous Multi-Frame Streaming Invariants**: Parity across backends must be verified continuously over $\ge 50$ sequential frames of streaming audio, not merely a single frame from an all-zero initial state. The maximum absolute difference between NumPy FP32 and ONNX Runtime FP32 must satisfy:
+  $$\max |\mathbf{M}_{\text{numpy}} - \mathbf{M}_{\text{onnx}}| < 0.005, \quad \max |\mathbf{h}_{\text{numpy}} - \mathbf{h}_{\text{onnx}}| < 0.005$$
+- **INT8 Quantization Fidelity Bounds**: Dynamic 8-bit integer quantization across multi-layer recurrent computational graphs must preserve an end-to-end Signal-to-Quantization-Noise Ratio $\text{SQNR} \ge 25.0\text{ dB}$ and Mean Absolute Error $\text{MAE} < 0.05$ against the unquantized FP32 reference across continuous streaming.
