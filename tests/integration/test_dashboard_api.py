@@ -306,6 +306,10 @@ def test_prometheus_metrics_endpoint(client: TestClient):
     assert "audio_pipeline_processed_frames_total" in text
     assert "audio_pipeline_active_clients" in text
     assert "audio_pipeline_process_memory_rss_bytes" in text
+    assert "audio_pipeline_hardware_temperature_celsius" in text
+    assert "audio_pipeline_hardware_power_watts" in text
+    assert "audio_pipeline_hardware_throttled" in text
+    assert "audio_pipeline_simd_active_tier" in text
 
 
 def test_api_studio_integrations_endpoint(client: TestClient):

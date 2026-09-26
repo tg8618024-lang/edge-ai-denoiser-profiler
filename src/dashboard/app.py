@@ -265,6 +265,13 @@ async def get_metrics():
     mem = get_process_memory()
     metrics_exporter.update_memory(int(mem.rss_mb * 1024 * 1024))
     metrics_exporter.update_simd_tier(get_simd_dispatcher().tier)
+    with state.lock:
+        prec = state.pipeline.get_precision()
+    prec_factor = {"FP32": 1.0, "FP16": 0.65, "INT8": 0.38}.get(prec.upper(), 1.0)
+    power_w = 8.5 * prec_factor
+    temp_c = getattr(state.energy_profiler, "current_temp_c", 42.0)
+    throttled = getattr(state.energy_profiler, "is_throttled", False)
+    metrics_exporter.update_hardware_telemetry(temp_c=temp_c, power_w=power_w, throttled=throttled)
     return Response(content=metrics_exporter.generate_metrics(), media_type=CONTENT_TYPE_LATEST)
 
 
@@ -1602,6 +1609,11 @@ async def websocket_stream(websocket: WebSocket):
             )
             noise_sig = state.classifier.classify(frame_m, in_mag)
             energy_met = state.energy_profiler.profile_frame(t_total, precision_mode)
+            metrics_exporter.update_hardware_telemetry(
+                temp_c=energy_met.temperature_c,
+                power_w=energy_met.power_watts,
+                throttled=energy_met.throttled,
+            )
 
             # Subtitle and translation processing with monotonic timeline
             time_sec = (total_stream_frames * hop) / 16000.0

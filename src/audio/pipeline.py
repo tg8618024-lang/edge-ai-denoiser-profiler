@@ -509,6 +509,17 @@ class AudioDenoisingPipeline:
         if not np.all(np.isfinite(frame_pcm)):
             frame_pcm = np.nan_to_num(frame_pcm, nan=0.0, posinf=1.0, neginf=-1.0)
 
+        # Denormal / subnormal float flush: eliminate values with 0 < |x| < 1e-15 to prevent x86 microcode stalls
+        subnormal_mask = (np.abs(frame_pcm) > 0.0) & (np.abs(frame_pcm) < 1e-15)
+        if np.any(subnormal_mask):
+            frame_pcm = np.where(subnormal_mask, 0.0, frame_pcm)
+
+        # Extreme digital clipping safeguard (+100 dBFS -> bounded soft saturation)
+        # 100 dBFS corresponds to amplitude 100,000. Bound extreme excursions to prevent float32 dynamic range explosion
+        max_abs = float(np.max(np.abs(frame_pcm))) if len(frame_pcm) > 0 else 0.0
+        if max_abs > 10.0:
+            frame_pcm = np.sign(frame_pcm) * (10.0 + 2.0 * np.tanh((np.abs(frame_pcm) - 10.0) / 2.0))
+
         # =========================================================================
         # Stage 1: Pre-processing (Framing, Windowing, rFFT, VAD, Noise Classifier, Dereverb)
         # =========================================================================
@@ -644,6 +655,8 @@ class AudioDenoisingPipeline:
         self.last_output_spec = clean_spec
 
         out_pcm = self.stft.synthesize(clean_spec)
+        if not np.all(np.isfinite(out_pcm)):
+            out_pcm = np.nan_to_num(out_pcm, nan=0.0, posinf=1.0, neginf=-1.0)
 
         # 5-Band Studio Parametric EQ Sculptor
         if hasattr(self, "eq") and self.eq.get_enabled():

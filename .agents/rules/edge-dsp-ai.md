@@ -114,5 +114,14 @@ All stateful telemetry estimators (such as `PerceptualQualityEstimator` maintain
 - **Stereo Phase Coherence & Multi-Channel Parity**: Multi-channel (stereo) processing must maintain independent channel STFT analysis and FIFO buffers to preserve spatial imaging, while synchronizing parameter smoothing once per frame across channels to prevent inter-channel phase flutter.
 - **OBS Studio Binary IPC Framing**: Real-time OBS Studio audio filter communication must use 4-byte big-endian unsigned length prefixes (`!I`) enclosing 16-bit signed PCM frames over local TCP sockets (`127.0.0.1:18890`), maintaining sub-millisecond IPC processing latency and per-connection session isolation.
 
+---
+
+## 15. Production Reliability, Concurrency Isolation, Thermal Dynamics & Adversarial Numerical Bounds
+- **Physical Thermal ODE Modeling**: Real-time edge inference telemetry must model continuous silicon thermal dynamics using 1st-order differential equations ($\tau = 10.0\text{ s}$) with precision-dependent power dissipation ($8.5\text{ W}$ FP32, $5.525\text{ W}$ FP16, $3.23\text{ W}$ INT8) and thermal throttling detection at $\ge 85.0^\circ\text{C}$, exposing metrics via Prometheus time-series gauges (`audio_pipeline_hardware_temperature_celsius`, `audio_pipeline_hardware_power_watts`, `audio_pipeline_hardware_throttled`).
+- **Denormal Float Flushing**: At streaming frame ingress, flush subnormal floats ($0 < |x| < 10^{-15}$) to zero to eliminate CPU microcode execution stalls.
+- **$+100\text{ dBFS}$ Digital Clipping Protection**: Map extreme input excursions ($|x| > 10.0$) using $C^1$ hyperbolic tangent soft-knees, ensuring numerical stability across STFT, neural mask inference, and output synthesis without NaN/Inf generation.
+- **Thread Safety & Concurrency Isolation**: All shared buffers in multi-channel, VST, and SIMD dispatch layers must enforce thread-safe mutual exclusion, and concurrent streaming sessions must maintain isolated pipeline instances.
+
+
 
 

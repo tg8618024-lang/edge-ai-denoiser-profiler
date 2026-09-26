@@ -102,6 +102,25 @@ def parse_ingress_binary(raw_bytes: bytes) -> Tuple[np.ndarray, int, str]:
     return pcm, seq, lang_str
 
 
+def pack_ingress_binary(seq: int, target_lang: str, pcm_samples: np.ndarray) -> bytes:
+    """Pack an ingress audio frame into high-throughput binary ADEN buffer (1,040 bytes)."""
+    pcm = np.asarray(pcm_samples, dtype=np.float32).ravel()
+    if len(pcm) != INGRESS_FRAME_SAMPLES:
+        raise ValueError(f"Expected {INGRESS_FRAME_SAMPLES} samples, got {len(pcm)}")
+    lang_encoded = target_lang.encode("ascii", errors="ignore")[:4].ljust(4, b"\x00")
+    lang_raw = struct.unpack("<I", lang_encoded)[0]
+    header = struct.pack(
+        "<4sBBHII",
+        ADEN_MAGIC,
+        PROTOCOL_VERSION,
+        MSG_INGRESS_AUDIO,
+        INGRESS_FRAME_SAMPLES,
+        int(seq),
+        lang_raw,
+    )
+    return header + pcm.tobytes()
+
+
 def pack_egress_binary(
     seq: int,
     total_latency_ms: float,
