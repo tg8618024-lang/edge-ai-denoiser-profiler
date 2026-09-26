@@ -120,7 +120,7 @@ Telemetry isolation and hardware timing verification: PASS
 
 The conventional git commit for this task:
 ```text
-Commit: dbad387
+Commit: 2baba0d
 Message: feat(webrtc): add peer-to-peer audio pipeline with RFC 3550 adaptive jitter buffer and PLC
 ```
 
