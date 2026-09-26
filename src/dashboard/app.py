@@ -49,6 +49,12 @@ from src.telemetry.prometheus_exporter import metrics_exporter, CONTENT_TYPE_LAT
 from src.telemetry.bigquery_exporter import bigquery_exporter
 from src.audio.vectorscope import PhaseCorrelationAnalyzer
 from src.audio.parametric_eq import ParametricEQ
+from src.integrations.webrtc_bridge import (
+    webrtc_bridge,
+    RTPPacket,
+    SDPHandler,
+    WebRTCAudioBridge,
+)
 from src.dashboard.protocol import (
     ADEN_MAGIC,
     PROTOCOL_VERSION,
@@ -173,6 +179,18 @@ class BatchBenchmarkRequest(BaseModel):
     snr_levels_db: Optional[List[float]] = None
     precisions: Optional[List[str]] = None
     duration_sec: float = Field(default=1.5, ge=0.5, le=5.0)
+
+
+class WebRTCOfferRequest(BaseModel):
+    sdp: str = Field(..., description="WebRTC SDP Offer string")
+    type: str = Field(default="offer", description="Signaling message type")
+
+
+class WebRTCPacketRequest(BaseModel):
+    seq: int = Field(..., ge=0, le=65535, description="16-bit RTP sequence number")
+    timestamp: int = Field(..., description="RTP timestamp in sample ticks")
+    pcm_samples: List[float] = Field(..., description="Audio samples normalized to [-1.0, 1.0]")
+    arrival_time_s: Optional[float] = Field(default=None, description="Arrival timestamp in seconds")
 
 
 
@@ -1015,6 +1033,69 @@ async def get_bigquery_schema():
 async def get_dataform_specification():
     """Return Dataform pipeline compilation manifest and SQLX node declarations."""
     return bigquery_exporter.get_dataform_manifest()
+
+
+# -----------------------------------------------------------------------------
+# WebRTC Direct Peer-to-Peer Audio Ingress / Egress Endpoints (RFC 3550 & SDP)
+# -----------------------------------------------------------------------------
+@app.post("/api/webrtc/offer")
+async def handle_webrtc_offer(req: WebRTCOfferRequest):
+    """Establish peer-to-peer WebRTC audio call session via SDP offer/answer."""
+    if not req.sdp or "m=audio" not in req.sdp:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid SDP offer: missing m=audio media description",
+        )
+
+    answer_sdp = SDPHandler.create_answer(req.sdp)
+    webrtc_bridge.reset()
+    return {
+        "type": "answer",
+        "sdp": answer_sdp,
+        "sample_rate": 16000,
+        "channel": 1,
+        "codecs": ["L16/16000/1", "opus/48000/2", "PCMU/8000"],
+    }
+
+
+@app.get("/api/webrtc/stats")
+async def get_webrtc_stats():
+    """Return real-time WebRTC network jitter, packet loss, PLC, and latency stats."""
+    jb_stats = webrtc_bridge.jitter_buffer.get_stats()
+    return {
+        "status": "connected" if jb_stats["total_packets_received"] > 0 else "idle",
+        "sample_rate": 16000,
+        "hop_length": 256,
+        "network": jb_stats,
+        "precision": webrtc_bridge.pipeline.get_precision(),
+    }
+
+
+@app.post("/api/webrtc/packet")
+async def ingest_webrtc_packet(req: WebRTCPacketRequest):
+    """Ingest a single RTP audio frame, denoise through neural pipeline, and return cleaned packet."""
+    samples = np.array(req.pcm_samples, dtype=np.float32)
+    int16_bytes = np.int16(np.clip(samples, -1.0, 1.0) * 32767.0).tobytes()
+
+    arrival_s = float(req.arrival_time_s) if req.arrival_time_s is not None else time.perf_counter()
+    packet = RTPPacket(
+        seq=req.seq,
+        timestamp=req.timestamp,
+        payload=int16_bytes,
+        arrival_time_s=arrival_s,
+    )
+    webrtc_bridge.ingest_rtp_packet(packet)
+    egress_packet, telemetry = webrtc_bridge.process_next_frame()
+
+    clean_pcm = np.frombuffer(egress_packet.payload, dtype=np.int16).astype(np.float32) / 32767.0
+    return {
+        "egress_packet": {
+            "seq": egress_packet.seq,
+            "timestamp": egress_packet.timestamp,
+            "pcm_samples": clean_pcm.tolist(),
+        },
+        "telemetry": telemetry,
+    }
 
 
 @app.get("/api/telemetry/quality")

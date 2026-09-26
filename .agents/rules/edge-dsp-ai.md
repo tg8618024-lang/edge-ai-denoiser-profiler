@@ -97,3 +97,13 @@ All stateful telemetry estimators (such as `PerceptualQualityEstimator` maintain
   - **Bounded numerical ranges**: Frame processing latency $\in [0.0, 1000.0]\text{ ms}$, ITU-T P.835 MOS metrics $\in [1.0, 5.0]$, STOI intelligibility $\in [0.0, 1.0]$, and PESQ listening quality $\in [-0.5, 4.5]$.
 - **Lakehouse Partitioning & Clustering Strategy**: Intermediate and mart tables generated via Dataform SQLX must partition by `date` derived from `timestamp_ns` and cluster by high-cardinality analytical facets (`hardware_tier`, `precision_mode`, `noise_category`) to eliminate full-table scans during fleet latency percentile (`APPROX_QUANTILES`) and psychoacoustic quality evaluations.
 
+---
+
+## 13. WebRTC Audio Transport, Adaptive Jitter Buffering & Packet Loss Concealment (RFC 3550 & G.711)
+- **RFC 3550 Interarrival Jitter Calculation**: Interarrival transit delay variation must be computed per RFC 3550 Section 6.4.1 using 1st-order recursive exponential smoothing with $\alpha = 1/16$:
+  $$D(i, j) = (R_j - S_j) - (R_i - S_i), \quad J(i) = J(i-1) + \frac{|D(i-1, i)| - J(i-1)}{16}$$
+  where $R$ is receiver arrival time in sample clock ticks and $S$ is sender timestamp.
+- **Adaptive Jitter Buffer Bounding**: The jitter buffer depth must adapt dynamically between a lower bound ($16.0\text{ ms}$, 1 frame hop) and upper bound ($100.0\text{ ms}$, ~6 frames) based on the smoothed interarrival variance ($3 \cdot J$). 16-bit sequence number wraparound ($65535 \to 0$) must be unwrapped to monotonic 64-bit space to prevent sequence sorting anomalies.
+- **Packet Loss Concealment (PLC)**: Buffer underruns or missing sequence packets must trigger ITU-T G.711 App. I pitch-synchronous history replication with geometric energy attenuation ($g = 0.85^k$), preventing audible clicks, pops, or audio processing stalls.
+
+
