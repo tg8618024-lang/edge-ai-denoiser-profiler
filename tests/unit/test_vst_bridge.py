@@ -23,6 +23,7 @@ from src.plugins.vst.vst_bridge import (
     vst_get_param,
     vst_get_latency,
     vst_process_buffer,
+    vst_process_stereo_buffer,
     vst_reset_instance,
 )
 from src.plugins.vst.host_simulator import DAWHostSimulator, HostSimulationResult
@@ -247,3 +248,94 @@ def test_c_abi_interface():
     assert destroy_vst_instance(handle) == 0
     assert destroy_vst_instance(handle) == -1  # Already destroyed
     assert vst_get_latency(handle) == -1
+
+
+# ============================================================================
+# 7. Stereo & Multi-Channel Processing Tests
+# ============================================================================
+
+def test_vst_processor_stereo_channels_first():
+    """Verify stereo (2, N) processing maintains shape, latency PDC, and independent channels."""
+    proc = VST3PluginProcessor(sample_rate=16000)
+
+    # 1.0 second 440 Hz Left, 880 Hz Right
+    t = np.linspace(0, 0.5, 8000, endpoint=False, dtype=np.float32)
+    left = 0.5 * np.sin(2.0 * np.pi * 440.0 * t)
+    right = 0.5 * np.sin(2.0 * np.pi * 880.0 * t)
+    stereo_in = np.stack([left, right], axis=0)  # Shape (2, 8000)
+
+    # Process in 128-sample blocks
+    block_size = 128
+    out_blocks = []
+    num_blocks = stereo_in.shape[1] // block_size
+    for i in range(num_blocks):
+        blk = stereo_in[:, i * block_size : (i + 1) * block_size]
+        out_blk = proc.process_block(blk)
+        assert out_blk.shape == (2, block_size)
+        out_blocks.append(out_blk)
+
+    stereo_out = np.concatenate(out_blocks, axis=1)
+    assert stereo_out.shape == (2, num_blocks * block_size)
+    assert not np.isnan(stereo_out).any()
+    # Ensure Left and Right channels remain distinct and not collapsed to mono
+    assert not np.allclose(stereo_out[0], stereo_out[1])
+
+
+def test_vst_processor_stereo_channels_last():
+    """Verify stereo (N, 2) interleaved processing returns matching (N, 2) shape."""
+    proc = VST3PluginProcessor(sample_rate=16000)
+
+    t = np.linspace(0, 0.25, 4000, endpoint=False, dtype=np.float32)
+    left = 0.4 * np.sin(2.0 * np.pi * 300.0 * t)
+    right = 0.4 * np.cos(2.0 * np.pi * 600.0 * t)
+    stereo_in = np.column_stack([left, right])  # Shape (4000, 2)
+
+    block_size = 64
+    out_blocks = []
+    num_blocks = len(stereo_in) // block_size
+    for i in range(num_blocks):
+        blk = stereo_in[i * block_size : (i + 1) * block_size]
+        out_blk = proc.process_block(blk)
+        assert out_blk.shape == (block_size, 2)
+        out_blocks.append(out_blk)
+
+    stereo_out = np.vstack(out_blocks)
+    assert stereo_out.shape == (num_blocks * block_size, 2)
+    assert not np.isnan(stereo_out).any()
+
+
+def test_c_abi_stereo_interface():
+    """Verify C ABI export hooks for stereo processing vst_process_stereo_buffer."""
+    handle = create_vst_instance(sample_rate=16000)
+    assert handle > 0
+
+    left_in = np.random.randn(256).astype(np.float32) * 0.1
+    right_in = np.random.randn(256).astype(np.float32) * 0.1
+
+    res = vst_process_stereo_buffer(handle, left_in, right_in)
+    assert res is not None
+    out_l, out_r = res
+    assert len(out_l) == 256
+    assert len(out_r) == 256
+    assert not np.isnan(out_l).any()
+    assert not np.isnan(out_r).any()
+
+    # Destroy handle
+    assert destroy_vst_instance(handle) == 0
+    assert vst_process_stereo_buffer(handle, left_in, right_in) is None
+
+
+def test_daw_host_simulator_stereo_streaming():
+    """Verify DAWHostSimulator streams stereo signals with click-free throughput."""
+    sim = DAWHostSimulator(sample_rate=16000)
+    t = np.linspace(0, 0.5, 8000, endpoint=False, dtype=np.float32)
+    audio_l = 0.4 * np.sin(2.0 * np.pi * 440.0 * t)
+    audio_r = 0.4 * np.cos(2.0 * np.pi * 550.0 * t)
+
+    (out_l, out_r), result = sim.simulate_stereo_streaming(audio_l, audio_r, block_size=128)
+    assert len(out_l) == len(audio_l)
+    assert len(out_r) == len(audio_r)
+    assert result.clicks_detected == 0
+    assert result.mean_block_latency_ms < 15.0
+    assert result.pdc_aligned is True
+

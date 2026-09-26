@@ -308,3 +308,44 @@ def test_prometheus_metrics_endpoint(client: TestClient):
     assert "audio_pipeline_process_memory_rss_bytes" in text
 
 
+def test_api_studio_integrations_endpoint(client: TestClient):
+    """Verifies /api/studio/integrations reports OBS, VST3, WebRTC, WebGPU, and Extension metadata."""
+    response = client.get("/api/studio/integrations")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "active"
+    assert "integrations" in data
+    integ = data["integrations"]
+
+    assert "obs_studio" in integ
+    assert integ["obs_studio"]["port"] == 18890
+    assert "protocol" in integ["obs_studio"]
+
+    assert "vst3_clap" in integ
+    assert integ["vst3_clap"]["latency_samples_pdc"] == 256
+    assert "stereo" in integ["vst3_clap"]["channels"]
+    assert 128 in integ["vst3_clap"]["supported_block_sizes"]
+
+    assert "webrtc" in integ
+    assert integ["webrtc"]["endpoints"]["offer"] == "/api/webrtc/offer"
+
+    assert "webgpu" in integ
+    assert integ["webgpu"]["endpoint"] == "/webgpu"
+
+    assert "chrome_extension" in integ
+    assert integ["chrome_extension"]["manifest_version"] == 3
+
+
+def test_api_obs_status_endpoint(client: TestClient):
+    """Verifies /api/obs/status reports OBS server status and metrics."""
+    response = client.get("/api/obs/status")
+    assert response.status_code == 200
+    data = response.json()
+    assert "is_running" in data
+    assert "host" in data
+    assert "port" in data
+    assert "active_clients" in data
+    assert "total_frames_processed" in data
+
+
+

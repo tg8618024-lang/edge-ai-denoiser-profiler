@@ -90,6 +90,12 @@
         <span class="tab-title">HARDWARE PROFILER</span>
         <span class="tab-sub">3-Stage Latency &bull; FP32 / FP16 / INT8</span>
       </div>
+    <button class="tab-btn" data-view="viewStudio" id="tabBtnStudio">
+      <span class="tab-icon">&#127911;</span>
+      <div class="tab-text-wrap">
+        <span class="tab-title" style="color: var(--accent-orange, #FF9100);">STUDIO &amp; OBS</span>
+        <span class="tab-sub">OBS IPC &bull; VST3/CLAP &bull; WebRTC</span>
+      </div>
     </button>
     <a href="/webgpu" target="_blank" rel="noopener noreferrer" class="tab-btn" id="tabBtnWebGpu" style="text-decoration: none;" title="Launch Standalone Client-Side WebGPU &amp; WASM SIMD Engine in new tab">
       <span class="tab-icon">&#9889;</span>
@@ -1586,6 +1592,104 @@
       </div>
     </section>
 
+      </div>
+    </div>
+
+    <!-- VIEW 6: STUDIO ECOSYSTEM & EXTERNAL INTEGRATIONS -->
+    <div class="workspace-view" id="viewStudio">
+      <div class="standalone-suite-grid">
+        <div class="studio-integrations-suite panel-card">
+          <div class="suite-header-bar">
+            <div class="suite-title-group">
+              <div class="brand-badge-row">
+                <span class="badge-rtx">PHASE 10 &middot; STUDIO ECOSYSTEM</span>
+                <span class="badge-new">PRODUCTION IPC &amp; BRIDGES</span>
+                <span class="badge-sub">&#127911; OBS &bull; VST3 &bull; CLAP &bull; WEBRTC</span>
+              </div>
+              <h2 class="suite-title"><span class="title-icon">&#127911;</span> EXTERNAL STUDIO INTEGRATIONS &amp; AUDIO BRIDGES</h2>
+              <p class="suite-desc">Low-latency binary sockets, DAW plugin bridges, and WebRTC streaming for live broadcasts and audio production.</p>
+            </div>
+            <div class="suite-controls-group">
+              <button id="btnRefreshStudioStatus" class="btn btn-sm btn-accent" title="Refresh live bridge connection statuses">&#8635; REFRESH STATUS</button>
+            </div>
+          </div>
+
+          <div class="studio-bridges-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; margin-top: 16px;">
+            <!-- Bridge 1: OBS Studio -->
+            <div class="panel-subcard" style="background: rgba(22, 27, 34, 0.7); border: 1px solid rgba(255, 145, 0, 0.3); border-radius: 8px; padding: 16px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <span style="font-weight: 700; color: var(--accent-orange, #FF9100); display: flex; align-items: center; gap: 8px;">
+                  <span>&#127909;</span> OBS STUDIO IPC BRIDGE
+                </span>
+                <span class="status-tag" id="obsServerTag" style="background: rgba(118, 185, 0, 0.2); color: #76b900; border: 1px solid rgba(118, 185, 0, 0.4); padding: 2px 8px; border-radius: 4px; font-size: 0.72rem;">READY</span>
+              </div>
+              <p style="font-size: 0.8rem; color: #8b949e; margin-bottom: 12px;">Real-time length-prefixed 16-bit PCM audio stream over TCP socket for OBS filter plugins.</p>
+              <div style="background: rgba(0,0,0,0.3); border-radius: 6px; padding: 8px 12px; font-family: monospace; font-size: 0.75rem; margin-bottom: 12px;">
+                <div>Host: <span style="color: #00E5FF;" id="obsHostText">127.0.0.1</span></div>
+                <div>Port: <span style="color: #00E5FF;" id="obsPortText">18890</span> (TCP IPC)</div>
+                <div>Format: 16-bit PCM &bull; 16 kHz Mono</div>
+                <div>Roundtrip: <span style="color: #76B900;" id="obsLatencyText">&lt; 1.0 ms</span></div>
+              </div>
+              <div style="display: flex; gap: 8px;">
+                <button id="btnStartObsServer" class="btn btn-sm btn-accent" style="flex: 1;">&#9654; START SERVER</button>
+                <button id="btnStopObsServer" class="btn btn-sm" style="flex: 1;">&#9632; STOP SERVER</button>
+              </div>
+            </div>
+
+            <!-- Bridge 2: VST3 / CLAP DAW Plugin -->
+            <div class="panel-subcard" style="background: rgba(22, 27, 34, 0.7); border: 1px solid rgba(0, 229, 255, 0.3); border-radius: 8px; padding: 16px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <span style="font-weight: 700; color: var(--accent-cyan, #00E5FF); display: flex; align-items: center; gap: 8px;">
+                  <span>&#127918;</span> VST3 / CLAP PLUGIN BRIDGE
+                </span>
+                <span class="status-tag" style="background: rgba(0, 229, 255, 0.2); color: #00E5FF; border: 1px solid rgba(0, 229, 255, 0.4); padding: 2px 8px; border-radius: 4px; font-size: 0.72rem;">BIT-EXACT PDC</span>
+              </div>
+              <p style="font-size: 0.8rem; color: #8b949e; margin-bottom: 12px;">Universal DAW plugin processor for Ableton Live, FL Studio, Logic Pro, and Reaper.</p>
+              <div style="background: rgba(0,0,0,0.3); border-radius: 6px; padding: 8px 12px; font-family: monospace; font-size: 0.75rem; margin-bottom: 12px;">
+                <div>Latency PDC: <span style="color: #76B900;">256 samples (16.0 ms)</span></div>
+                <div>Channels: <span style="color: #00E5FF;">Mono (N,) &amp; Stereo (2, N)</span></div>
+                <div>Block Sizes: 32 &bull; 64 &bull; 128 &bull; 256 &bull; 512 &bull; 1024</div>
+                <div>Smoothing: One-pole low-pass (&alpha; = 0.90)</div>
+              </div>
+              <div style="font-size: 0.72rem; color: #8b949e; text-align: center; margin-top: 6px;">C ABI Exports &bull; JUCE / nih-plug Wrapper Compatible</div>
+            </div>
+
+            <!-- Bridge 3: WebRTC P2P Pipeline -->
+            <div class="panel-subcard" style="background: rgba(22, 27, 34, 0.7); border: 1px solid rgba(118, 185, 0, 0.3); border-radius: 8px; padding: 16px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <span style="font-weight: 700; color: #76b900; display: flex; align-items: center; gap: 8px;">
+                  <span>&#127760;</span> WEBRTC P2P AUDIO
+                </span>
+                <span class="status-tag" style="background: rgba(118, 185, 0, 0.2); color: #76b900; border: 1px solid rgba(118, 185, 0, 0.4); padding: 2px 8px; border-radius: 4px; font-size: 0.72rem;">RFC 3550</span>
+              </div>
+              <p style="font-size: 0.8rem; color: #8b949e; margin-bottom: 12px;">Direct peer-to-peer browser voice calls with adaptive jitter buffer and packet loss concealment.</p>
+              <div style="background: rgba(0,0,0,0.3); border-radius: 6px; padding: 8px 12px; font-family: monospace; font-size: 0.75rem; margin-bottom: 12px;">
+                <div>Jitter Buffer: <span style="color: #00E5FF;">RFC 3550 1st-Order Adaptive</span></div>
+                <div>PLC: <span style="color: #76B900;">ITU-T G.711 App. I Pitch Decay</span></div>
+                <div>Signaling: <span style="color: #8b949e;">POST /api/webrtc/offer</span></div>
+                <div>RTP Ingress: <span style="color: #8b949e;">POST /api/webrtc/packet</span></div>
+              </div>
+              <button id="btnTestWebrtcOffer" class="btn btn-sm btn-accent" style="width: 100%;">&#9889; TEST SDP OFFER / ANSWER</button>
+            </div>
+
+            <!-- Bridge 4: Chrome WebRTC Extension -->
+            <div class="panel-subcard" style="background: rgba(22, 27, 34, 0.7); border: 1px solid rgba(139, 92, 246, 0.3); border-radius: 8px; padding: 16px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <span style="font-weight: 700; color: #a78bfa; display: flex; align-items: center; gap: 8px;">
+                  <span>&#128187;</span> CHROME EXTENSION
+                </span>
+                <span class="status-tag" style="background: rgba(139, 92, 246, 0.2); color: #a78bfa; border: 1px solid rgba(139, 92, 246, 0.4); padding: 2px 8px; border-radius: 4px; font-size: 0.72rem;">MANIFEST V3</span>
+              </div>
+              <p style="font-size: 0.8rem; color: #8b949e; margin-bottom: 12px;">Zero-install browser microphone interception for Google Meet, Discord, and Teams calls.</p>
+              <div style="background: rgba(0,0,0,0.3); border-radius: 6px; padding: 8px 12px; font-family: monospace; font-size: 0.75rem; margin-bottom: 12px;">
+                <div>Package: <span style="color: #00E5FF;">extensions/chrome-edge-denoiser</span></div>
+                <div>Audio Worklet: <span style="color: #76B900;">Catmull-Rom 48 kHz Resampler</span></div>
+                <div>Status: <span style="color: #a78bfa;">Packaged &amp; Verified</span></div>
+              </div>
+              <div style="font-size: 0.72rem; color: #8b949e; text-align: center; margin-top: 4px;">Load unpacked in chrome://extensions</div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 

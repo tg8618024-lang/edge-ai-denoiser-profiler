@@ -106,4 +106,13 @@ All stateful telemetry estimators (such as `PerceptualQualityEstimator` maintain
 - **Adaptive Jitter Buffer Bounding**: The jitter buffer depth must adapt dynamically between a lower bound ($16.0\text{ ms}$, 1 frame hop) and upper bound ($100.0\text{ ms}$, ~6 frames) based on the smoothed interarrival variance ($3 \cdot J$). 16-bit sequence number wraparound ($65535 \to 0$) must be unwrapped to monotonic 64-bit space to prevent sequence sorting anomalies.
 - **Packet Loss Concealment (PLC)**: Buffer underruns or missing sequence packets must trigger ITU-T G.711 App. I pitch-synchronous history replication with geometric energy attenuation ($g = 0.85^k$), preventing audible clicks, pops, or audio processing stalls.
 
+---
+
+## 14. External Studio Ecosystem, Variable-Block DAW Bridging & OBS TCP IPC
+- **Variable Block Size Adaptation**: Professional DAWs (Ableton Live, FL Studio, Logic Pro, Reaper) execute arbitrary buffer block sizes ($32, 64, 128, 256, 512, 1024$ samples). The plugin bridge must buffer and bridge variable block sizes to the fixed 256-sample STFT hop size via double-buffered circular FIFOs (`AudioCircularFIFO`) with re-entrant thread safety.
+- **Sample-Accurate Plugin Delay Compensation (PDC)**: The STFT overlap-add pipeline introduces exactly 1 frame hop of algorithmic latency (256 samples / $16.0\text{ ms}$ at 16 kHz). Output FIFOs must be pre-filled with exactly 256 zero samples on reset, and `get_latency_samples()` must report 256 samples to the DAW host, guaranteeing bit-exact sample alignment between processed stems and dry tracks.
+- **Stereo Phase Coherence & Multi-Channel Parity**: Multi-channel (stereo) processing must maintain independent channel STFT analysis and FIFO buffers to preserve spatial imaging, while synchronizing parameter smoothing once per frame across channels to prevent inter-channel phase flutter.
+- **OBS Studio Binary IPC Framing**: Real-time OBS Studio audio filter communication must use 4-byte big-endian unsigned length prefixes (`!I`) enclosing 16-bit signed PCM frames over local TCP sockets (`127.0.0.1:18890`), maintaining sub-millisecond IPC processing latency and per-connection session isolation.
+
+
 

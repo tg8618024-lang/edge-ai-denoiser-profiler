@@ -233,6 +233,65 @@ class DAWHostSimulator:
         )
         return audio_out, result
 
+    def simulate_stereo_streaming(
+        self,
+        audio_left: np.ndarray,
+        audio_right: np.ndarray,
+        block_size: int = 128,
+        processor: Optional[VST3PluginProcessor] = None,
+    ) -> Tuple[Tuple[np.ndarray, np.ndarray], HostSimulationResult]:
+        """Stream a stereo audio pair through the plugin using a constant host block size."""
+        proc = processor or VST3PluginProcessor(sample_rate=self.sample_rate)
+        proc.reset()
+
+        arr_l = np.asarray(audio_left, dtype=np.float32).ravel()
+        arr_r = np.asarray(audio_right, dtype=np.float32).ravel()
+        total_samples = min(len(arr_l), len(arr_r))
+        num_blocks = (total_samples + block_size - 1) // block_size
+
+        out_blocks_l: List[np.ndarray] = []
+        out_blocks_r: List[np.ndarray] = []
+        latencies_ms: List[float] = []
+
+        t_start = time.perf_counter()
+        for i in range(num_blocks):
+            start_idx = i * block_size
+            end_idx = min(start_idx + block_size, total_samples)
+            block_in = np.stack([arr_l[start_idx:end_idx], arr_r[start_idx:end_idx]], axis=0)
+
+            t0 = time.perf_counter()
+            block_out = proc.process_block(block_in)
+            latencies_ms.append((time.perf_counter() - t0) * 1000.0)
+
+            out_blocks_l.append(block_out[0])
+            out_blocks_r.append(block_out[1])
+
+        wall_time = time.perf_counter() - t_start
+        out_l = np.concatenate(out_blocks_l)[:total_samples] if out_blocks_l else np.zeros(0, dtype=np.float32)
+        out_r = np.concatenate(out_blocks_r)[:total_samples] if out_blocks_r else np.zeros(0, dtype=np.float32)
+
+        clicks = self.detect_clicks(out_l) + self.detect_clicks(out_r)
+
+        mean_lat = float(np.mean(latencies_ms)) if latencies_ms else 0.0
+        max_lat = float(np.max(latencies_ms)) if latencies_ms else 0.0
+        p95_lat = float(np.percentile(latencies_ms, 95)) if latencies_ms else 0.0
+        throughput = float(num_blocks / max(wall_time, 1e-9))
+
+        result = HostSimulationResult(
+            block_sizes=[block_size],
+            total_samples=total_samples,
+            num_blocks=num_blocks,
+            wall_time_s=wall_time,
+            throughput_blocks_per_sec=throughput,
+            mean_block_latency_ms=mean_lat,
+            max_block_latency_ms=max_lat,
+            p95_block_latency_ms=p95_lat,
+            clicks_detected=clicks,
+            underrun_count=0,
+            pdc_aligned=True,
+        )
+        return (out_l, out_r), result
+
     def verify_bypass_alignment(
         self,
         audio_in: np.ndarray,

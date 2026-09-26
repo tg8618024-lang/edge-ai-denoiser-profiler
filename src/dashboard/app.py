@@ -61,6 +61,18 @@ from src.integrations.webrtc_bridge import (
     SDPHandler,
     WebRTCAudioBridge,
 )
+from src.integrations.obs_bridge import (
+    AudioFilterProtocol,
+    OBSFilterBridge,
+    OBSFilterServer,
+)
+
+obs_server = OBSFilterServer(
+    host="127.0.0.1",
+    port=int(os.getenv("OBS_BRIDGE_PORT", "18890")),
+    sample_rate=16000,
+    hop_length=256,
+)
 from src.dashboard.protocol import (
     ADEN_MAGIC,
     PROTOCOL_VERSION,
@@ -1141,6 +1153,99 @@ async def ingest_webrtc_packet(req: WebRTCPacketRequest):
         },
         "telemetry": telemetry,
     }
+
+
+# -----------------------------------------------------------------------------
+# Studio Ecosystem & External DAWs / OBS Integrations (Phase 10 & 11)
+# -----------------------------------------------------------------------------
+@app.get("/api/studio/integrations")
+async def get_studio_integrations():
+    """Return status, metadata, and configuration guides for external studio ecosystems."""
+    obs_stat = obs_server.get_status()
+    return {
+        "status": "active",
+        "integrations": {
+            "obs_studio": {
+                "name": "OBS Studio IPC Audio Filter",
+                "transport": "TCP Socket IPC",
+                "host": obs_stat.get("host", "127.0.0.1"),
+                "port": obs_stat.get("port", 18890),
+                "is_running": obs_stat.get("is_running", False),
+                "active_clients": obs_stat.get("active_clients", 0),
+                "total_frames_processed": obs_stat.get("total_frames_processed", 0),
+                "last_latency_ms": obs_stat.get("last_latency_ms", 0.0),
+                "protocol": "4-byte length-prefix + 16-bit 16kHz PCM",
+                "setup_guide": "Point OBS audio filter plugin to 127.0.0.1:18890",
+            },
+            "vst3_clap": {
+                "name": "VST3 / CLAP Audio Plugin Bridge",
+                "transport": "Native C ABI / Variable Block Adapter",
+                "sample_rate": 16000,
+                "latency_samples_pdc": 256,
+                "latency_ms_pdc": 16.0,
+                "channels": ["mono", "stereo"],
+                "supported_block_sizes": [32, 64, 128, 256, 512, 1024],
+                "parameters": [
+                    "kParamBypass",
+                    "kParamDenoiseAmount",
+                    "kParamModelSelect",
+                    "kParamCrossfade",
+                    "kParamPrecision",
+                ],
+                "smoothing": "One-pole low-pass (alpha=0.90)",
+            },
+            "webrtc": {
+                "name": "WebRTC Direct Peer-to-Peer Pipeline",
+                "transport": "RTP over UDP / WebSocket Signaling",
+                "endpoints": {
+                    "offer": "/api/webrtc/offer",
+                    "stats": "/api/webrtc/stats",
+                    "packet": "/api/webrtc/packet",
+                },
+                "jitter_buffer": "RFC 3550 1st-order adaptive",
+                "plc": "ITU-T G.711 Appendix I pitch-synchronous waveform substitution",
+                "status": "ready",
+            },
+            "webgpu": {
+                "name": "Client-Side WebGPU / WASM SIMD Testbench",
+                "transport": "In-Browser GPU Compute Shader",
+                "endpoint": "/webgpu",
+                "shader": "WGSL Compute Shader (@workgroup_size(64))",
+                "fallback": "Vectorized WASM SIMD128 Float32Array",
+                "status": "ready",
+            },
+            "chrome_extension": {
+                "name": "Edge AI Audio Denoiser Chrome Extension",
+                "manifest_version": 3,
+                "directory": "extensions/chrome-edge-denoiser",
+                "webrtc_shim": "scripts/webrtc_shim.js",
+                "audio_worklet": "scripts/denoiser-worklet.js",
+                "status": "packaged",
+            },
+        },
+    }
+
+
+@app.get("/api/obs/status")
+async def get_obs_status():
+    """Return runtime health and streaming metrics for OBS Studio filter server."""
+    return obs_server.get_status()
+
+
+@app.post("/api/obs/start")
+async def start_obs_server():
+    """Start the OBS Studio TCP IPC server."""
+    if not obs_server.is_running:
+        await obs_server.start()
+    return obs_server.get_status()
+
+
+@app.post("/api/obs/stop")
+async def stop_obs_server():
+    """Stop the OBS Studio TCP IPC server."""
+    if obs_server.is_running:
+        await obs_server.stop()
+    return obs_server.get_status()
 
 
 @app.get("/api/telemetry/quality")

@@ -3,6 +3,8 @@
 Provides an industry-standard DAW plugin adapter for the Real-Time Edge AI Audio Denoiser:
 - Adapts arbitrary DAW host block sizes (32, 64, 128, 256, 512, 1024 samples) via a
   double-buffered circular FIFO to the fixed 256-sample (16.0 ms) STFT frame hop.
+- Multi-channel support: Mono (N,) and Stereo (2, N) / (N, 2) processing with preserved
+  stereo phase coherence and spatial imaging.
 - Parameter automation interface matching VST3 / CLAP specifications:
   * kParamBypass (0 = Active, 1 = Bypassed)
   * kParamDenoiseAmount (0.0 to 1.0 wet/dry ratio)
@@ -17,7 +19,7 @@ Provides an industry-standard DAW plugin adapter for the Real-Time Edge AI Audio
 from __future__ import annotations
 import ctypes
 import threading
-from typing import Dict, Any, Optional, Tuple
+from typing import Dict, Any, Optional, Tuple, Union
 import numpy as np
 
 from src.audio.dual_pipeline import DualModelPipeline
@@ -127,7 +129,8 @@ class VST3PluginProcessor:
     """VST3 / CLAP Audio Plugin Bridge Processor.
 
     Bridges DAW variable host block sizes (32..1024) to the fixed 256-sample STFT hop size
-    with full parameter automation, linear smoothing, sample-accurate PDC, and bypass support.
+    with full parameter automation, linear smoothing, sample-accurate PDC, bypass support,
+    and native stereo / multi-channel processing.
     """
 
     def __init__(
@@ -141,17 +144,30 @@ class VST3PluginProcessor:
         self.hop_length = int(hop_length)
         self.n_fft = int(n_fft)
 
-        # Underlying dual-model speech enhancement engine
-        self.pipeline = DualModelPipeline(
+        # Underlying dual-model speech enhancement engines (Left and Right channels)
+        self.pipeline_l = DualModelPipeline(
             n_fft=self.n_fft,
             hop_length=self.hop_length,
             sample_rate=self.sample_rate,
             crossfade_alpha=0.5,
         )
+        self.pipeline_r = DualModelPipeline(
+            n_fft=self.n_fft,
+            hop_length=self.hop_length,
+            sample_rate=self.sample_rate,
+            crossfade_alpha=0.5,
+        )
+        self.pipeline = self.pipeline_l  # Backward compatibility alias
 
-        # FIFOs for block adaptation
-        self.input_fifo = AudioCircularFIFO(capacity=fifo_capacity)
-        self.output_fifo = AudioCircularFIFO(capacity=fifo_capacity)
+        # FIFOs for block adaptation (Left and Right channels)
+        self.input_fifo_l = AudioCircularFIFO(capacity=fifo_capacity)
+        self.output_fifo_l = AudioCircularFIFO(capacity=fifo_capacity)
+        self.input_fifo_r = AudioCircularFIFO(capacity=fifo_capacity)
+        self.output_fifo_r = AudioCircularFIFO(capacity=fifo_capacity)
+
+        # Backward compatibility aliases
+        self.input_fifo = self.input_fifo_l
+        self.output_fifo = self.output_fifo_l
 
         # Parameters
         self.params: Dict[str, float] = {
@@ -177,8 +193,9 @@ class VST3PluginProcessor:
         self.total_samples_processed = 0
 
     def _prefill_pdc_latency(self) -> None:
-        """Prefill output FIFO with latency samples to ensure zero-starvation block returns."""
-        self.output_fifo.prefill(self.latency_samples, 0.0)
+        """Prefill output FIFOs with latency samples to ensure zero-starvation block returns."""
+        self.output_fifo_l.prefill(self.latency_samples, 0.0)
+        self.output_fifo_r.prefill(self.latency_samples, 0.0)
 
     def get_latency_samples(self) -> int:
         """Return algorithmic latency in samples for DAW Plugin Delay Compensation (PDC)."""
@@ -189,7 +206,7 @@ class VST3PluginProcessor:
         return (self.latency_samples / self.sample_rate) * 1000.0
 
     def set_parameter(self, param_id: str, value: float) -> None:
-        """Update an automated parameter value."""
+        """Update an automated parameter value across channels."""
         if param_id == PARAM_BYPASS:
             self.params[PARAM_BYPASS] = 1.0 if bool(round(value)) else 0.0
         elif param_id == PARAM_DENOISE_AMOUNT:
@@ -202,7 +219,8 @@ class VST3PluginProcessor:
             prec_idx = int(np.clip(int(round(value)), 0, 2))
             self.params[PARAM_PRECISION] = float(prec_idx)
             prec_str = PRECISION_MAP.get(prec_idx, "FP32")
-            self.pipeline.set_precision(prec_str)
+            self.pipeline_l.set_precision(prec_str)
+            self.pipeline_r.set_precision(prec_str)
         else:
             raise KeyError(f"Unknown parameter ID: {param_id}")
 
@@ -261,86 +279,146 @@ class VST3PluginProcessor:
 
     def reset(self) -> None:
         """Reset internal DSP states and FIFOs (called on DAW transport restart or sample rate change)."""
-        self.input_fifo.clear()
-        self.output_fifo.clear()
+        self.input_fifo_l.clear()
+        self.output_fifo_l.clear()
+        self.input_fifo_r.clear()
+        self.output_fifo_r.clear()
         self._prefill_pdc_latency()
-        self.pipeline.reset()
+        self.pipeline_l.reset()
+        self.pipeline_r.reset()
         self._smoothed_denoise_amount = self.params[PARAM_DENOISE_AMOUNT]
         self._smoothed_crossfade = self.params[PARAM_CROSSFADE]
         self.total_blocks_processed = 0
         self.total_samples_processed = 0
 
+    def _process_channel_frames(
+        self,
+        in_fifo: AudioCircularFIFO,
+        out_fifo: AudioCircularFIFO,
+        pipeline: DualModelPipeline,
+        update_smoothing: bool = False,
+    ) -> None:
+        """Process complete hop_length frames from in_fifo and write to out_fifo."""
+        is_bypassed = bool(round(self.params[PARAM_BYPASS]))
+        model_sel = int(round(self.params[PARAM_MODEL_SELECT]))
+
+        while in_fifo.available_read() >= self.hop_length:
+            frame_in = in_fifo.read(self.hop_length)
+
+            if update_smoothing:
+                target_amount = self.params[PARAM_DENOISE_AMOUNT]
+                target_crossfade = self.params[PARAM_CROSSFADE]
+                self._smoothed_denoise_amount = (
+                    self.smoothing_alpha * self._smoothed_denoise_amount
+                    + (1.0 - self.smoothing_alpha) * target_amount
+                )
+                self._smoothed_crossfade = (
+                    self.smoothing_alpha * self._smoothed_crossfade
+                    + (1.0 - self.smoothing_alpha) * target_crossfade
+                )
+
+            if is_bypassed:
+                _ = pipeline.process_frame(frame_in, crossfade_alpha=self._smoothed_crossfade)
+                frame_out = frame_in
+            else:
+                if model_sel == 0:
+                    res = pipeline.process_frame(frame_in, crossfade_alpha=0.0)
+                    wet = res.audio_a
+                elif model_sel == 1:
+                    res = pipeline.process_frame(frame_in, crossfade_alpha=1.0)
+                    wet = res.audio_b
+                else:
+                    res = pipeline.process_frame(frame_in, crossfade_alpha=self._smoothed_crossfade)
+                    wet = res.audio_mix
+
+                frame_out = (
+                    (1.0 - self._smoothed_denoise_amount) * frame_in
+                    + self._smoothed_denoise_amount * wet
+                )
+
+            out_fifo.write(frame_out)
+
     def process_block(self, input_samples: np.ndarray) -> np.ndarray:
-        """Process an arbitrary DAW host audio buffer block.
+        """Process an arbitrary DAW host audio buffer block (Mono or Stereo).
 
         Parameters
         ----------
         input_samples : np.ndarray
-            1D float32 audio array of length N (e.g. 32, 64, 128, 256, 512, 1024).
+            Audio array. Can be:
+            - 1D mono array of shape (N,)
+            - 2D stereo channels-first array of shape (2, N)
+            - 2D stereo channels-last array of shape (N, 2)
 
         Returns
         -------
         np.ndarray
-            1D float32 processed audio array of identical length N.
+            Processed audio array of identical shape.
         """
-        arr = np.asarray(input_samples, dtype=np.float32).ravel()
-        block_len = len(arr)
-        if block_len == 0:
-            return np.zeros(0, dtype=np.float32)
+        arr = np.asarray(input_samples, dtype=np.float32)
+        if arr.size == 0:
+            return np.zeros_like(arr)
 
-        # 1. Push incoming block to input FIFO
-        self.input_fifo.write(arr)
-
-        # 2. Process all complete frames of hop_length
-        while self.input_fifo.available_read() >= self.hop_length:
-            frame_in = self.input_fifo.read(self.hop_length)
-
-            # Smooth parameters per frame to eliminate zipper noise
-            target_amount = self.params[PARAM_DENOISE_AMOUNT]
-            target_crossfade = self.params[PARAM_CROSSFADE]
-            self._smoothed_denoise_amount = (
-                self.smoothing_alpha * self._smoothed_denoise_amount
-                + (1.0 - self.smoothing_alpha) * target_amount
+        if arr.ndim == 1:
+            # Mono processing
+            block_len = len(arr)
+            self.input_fifo_l.write(arr)
+            self._process_channel_frames(
+                self.input_fifo_l, self.output_fifo_l, self.pipeline_l, update_smoothing=True
             )
-            self._smoothed_crossfade = (
-                self.smoothing_alpha * self._smoothed_crossfade
-                + (1.0 - self.smoothing_alpha) * target_crossfade
-            )
+            out_block = self.output_fifo_l.read(block_len)
+            self.total_blocks_processed += 1
+            self.total_samples_processed += block_len
+            return out_block
 
-            is_bypassed = bool(round(self.params[PARAM_BYPASS]))
+        elif arr.ndim == 2:
+            if arr.shape[0] == 2:
+                # Channels-first stereo: shape (2, N)
+                block_len = arr.shape[1]
+                self.input_fifo_l.write(arr[0])
+                self.input_fifo_r.write(arr[1])
 
-            if is_bypassed:
-                # In bypass mode, input frame is passed through PDC delay cleanly
-                # Also keep pipeline state updated
-                _ = self.pipeline.process_frame(frame_in, crossfade_alpha=self._smoothed_crossfade)
-                frame_out = frame_in
+                self._process_channel_frames(
+                    self.input_fifo_l, self.output_fifo_l, self.pipeline_l, update_smoothing=True
+                )
+                self._process_channel_frames(
+                    self.input_fifo_r, self.output_fifo_r, self.pipeline_r, update_smoothing=False
+                )
+
+                out_l = self.output_fifo_l.read(block_len)
+                out_r = self.output_fifo_r.read(block_len)
+                self.total_blocks_processed += 1
+                self.total_samples_processed += block_len
+                return np.stack([out_l, out_r], axis=0)
+
+            elif arr.shape[1] == 2:
+                # Channels-last stereo: shape (N, 2)
+                block_len = arr.shape[0]
+                self.input_fifo_l.write(arr[:, 0])
+                self.input_fifo_r.write(arr[:, 1])
+
+                self._process_channel_frames(
+                    self.input_fifo_l, self.output_fifo_l, self.pipeline_l, update_smoothing=True
+                )
+                self._process_channel_frames(
+                    self.input_fifo_r, self.output_fifo_r, self.pipeline_r, update_smoothing=False
+                )
+
+                out_l = self.output_fifo_l.read(block_len)
+                out_r = self.output_fifo_r.read(block_len)
+                self.total_blocks_processed += 1
+                self.total_samples_processed += block_len
+                return np.column_stack([out_l, out_r])
+
             else:
-                model_sel = int(round(self.params[PARAM_MODEL_SELECT]))
-                if model_sel == 0:
-                    # Model A: Neural GRUMaskNet
-                    res = self.pipeline.process_frame(frame_in, crossfade_alpha=0.0)
-                    wet = res.audio_a
-                elif model_sel == 1:
-                    # Model B: Wiener DSP
-                    res = self.pipeline.process_frame(frame_in, crossfade_alpha=1.0)
-                    wet = res.audio_b
-                else:
-                    # 2: Dual Crossfade
-                    res = self.pipeline.process_frame(frame_in, crossfade_alpha=self._smoothed_crossfade)
-                    wet = res.audio_mix
+                # Fallback to mono ravel
+                flat = arr.ravel()
+                out_flat = self.process_block(flat)
+                return out_flat.reshape(arr.shape)
 
-                # Wet/Dry mix with smoothed denoise amount
-                frame_out = (1.0 - self._smoothed_denoise_amount) * frame_in + self._smoothed_denoise_amount * wet
-
-            # Write processed frame to output FIFO
-            self.output_fifo.write(frame_out)
-
-        # 3. Read exactly block_len samples from output FIFO
-        out_block = self.output_fifo.read(block_len)
-
-        self.total_blocks_processed += 1
-        self.total_samples_processed += block_len
-        return out_block
+        else:
+            flat = arr.ravel()
+            out_flat = self.process_block(flat)
+            return out_flat.reshape(arr.shape)
 
 
 # ============================================================================
@@ -401,6 +479,21 @@ def vst_process_buffer(handle: int, in_samples: np.ndarray) -> Optional[np.ndarr
     if handle not in _INSTANCES:
         return None
     return _INSTANCES[handle].process_block(in_samples)
+
+
+def vst_process_stereo_buffer(
+    handle: int, in_left: np.ndarray, in_right: np.ndarray
+) -> Optional[Tuple[np.ndarray, np.ndarray]]:
+    """Process stereo Left and Right audio arrays through instance. Returns (out_left, out_right)."""
+    if handle not in _INSTANCES:
+        return None
+    proc = _INSTANCES[handle]
+    arr_l = np.asarray(in_left, dtype=np.float32).ravel()
+    arr_r = np.asarray(in_right, dtype=np.float32).ravel()
+    min_len = min(len(arr_l), len(arr_r))
+    stereo_in = np.stack([arr_l[:min_len], arr_r[:min_len]], axis=0)
+    stereo_out = proc.process_block(stereo_in)
+    return stereo_out[0], stereo_out[1]
 
 
 def vst_reset_instance(handle: int) -> int:

@@ -25,6 +25,7 @@ import { initTranslationSubtitles, updateSubtitlesUI } from "./ui/translation-su
 import { initStudioRecorder, accumulateRecordingData, startRecordingSession } from "./ui/studio-recorder.js";
 import { initStudioSuite, updateTseUI, handleTseTriggerDetected, updateStudioUI, updateAutoAdaptUI } from "./ui/studio-suite.js";
 import { initBatchBenchmark } from "./ui/batch-benchmark.js";
+import { initStudioIntegrations } from "./ui/studio-integrations.js";
 
 let micStreamer = null;
 
@@ -64,6 +65,7 @@ export function initApp() {
   initStudioRecorder({ onStartStreamIfNeeded });
   initStudioSuite();
   initBatchBenchmark();
+  initStudioIntegrations();
 
   // Wire WebSocket Events
   state.on("telemetry", (msg) => {
