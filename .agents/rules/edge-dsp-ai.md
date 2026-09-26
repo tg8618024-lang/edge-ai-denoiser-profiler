@@ -122,6 +122,14 @@ All stateful telemetry estimators (such as `PerceptualQualityEstimator` maintain
 - **$+100\text{ dBFS}$ Digital Clipping Protection**: Map extreme input excursions ($|x| > 10.0$) using $C^1$ hyperbolic tangent soft-knees, ensuring numerical stability across STFT, neural mask inference, and output synthesis without NaN/Inf generation.
 - **Thread Safety & Concurrency Isolation**: All shared buffers in multi-channel, VST, and SIMD dispatch layers must enforce thread-safe mutual exclusion, and concurrent streaming sessions must maintain isolated pipeline instances.
 
+---
+
+## 16. Objective Quality Gates, Component Ablation & Pareto Efficiency Verification
+- **Ablation Benchmark Verification**: All new DSP algorithms, neural topologies, and quantization formats must be verified through `AblationEngine` (`run_ablation.py`) across stationary and non-stationary acoustic noise profiles.
+- **INT8 Pareto Efficiency**: Verify that 8-bit integer inference achieves $\ge 70\%$ memory footprint reduction with $< 0.20\text{ dB}$ SNR delta against FP32.
+- **Strict Perceptual Thresholds**: Telemetry profiler must assert compliance with ITU-T P.835 DNSMOS ($\text{SIG} \ge 3.5$, $\text{BAK} \ge 4.0$, $\text{OVRL} \ge 3.6$) and 1/3-octave STOI ($\ge 0.90$).
+
+
 
 
 
