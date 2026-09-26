@@ -46,6 +46,7 @@ from src.audio.harmonics import HarmonicEnhancer
 from src.models.transcription import SpeechTranscriber, SubtitleSegment
 from src.models.translator import MultilingualTranslator, TranslationResult
 from src.telemetry.prometheus_exporter import metrics_exporter, CONTENT_TYPE_LATEST
+from src.telemetry.bigquery_exporter import bigquery_exporter
 from src.audio.vectorscope import PhaseCorrelationAnalyzer
 from src.audio.parametric_eq import ParametricEQ
 from src.dashboard.protocol import (
@@ -978,6 +979,44 @@ async def export_benchmark_report(format: str = "json"):
     )
 
 
+@app.get("/api/telemetry/bigquery/export")
+async def export_bigquery_telemetry(
+    limit: Optional[int] = Query(default=None, ge=1, le=5000),
+    format: str = Query(default="ndjson"),
+):
+    """Export edge telemetry records formatted for BigQuery ingestion."""
+    fmt = format.lower().strip()
+    if fmt == "ndjson":
+        ndjson_data = bigquery_exporter.export_ndjson(limit=limit)
+        return Response(
+            content=ndjson_data,
+            media_type="application/x-ndjson",
+            headers={"Content-Disposition": 'attachment; filename="audio_telemetry_raw.ndjson"'},
+        )
+    return JSONResponse(
+        content={
+            "buffered_count": bigquery_exporter.get_buffered_count(),
+            "records": [
+                json.loads(line)
+                for line in bigquery_exporter.export_ndjson(limit=limit).splitlines()
+                if line.strip()
+            ],
+        }
+    )
+
+
+@app.get("/api/telemetry/bigquery/schema")
+async def get_bigquery_schema():
+    """Return the BigQuery table schema definition for audio_telemetry_raw."""
+    return {"schema": bigquery_exporter.get_schema()}
+
+
+@app.get("/api/telemetry/dataform/spec")
+async def get_dataform_specification():
+    """Return Dataform pipeline compilation manifest and SQLX node declarations."""
+    return bigquery_exporter.get_dataform_manifest()
+
+
 @app.get("/api/telemetry/quality")
 async def get_voice_quality_telemetry():
     """Return latest ITU-T P.835 DNSMOS (SIG, BAK, OVRL), STOI, and PESQ telemetry."""
@@ -1188,6 +1227,7 @@ async def download_recorded_session(session_id: str, format: str = "clean_wav"):
 @app.websocket("/ws/stream")
 async def websocket_stream(websocket: WebSocket):
     await websocket.accept()
+    session_id = uuid.uuid4().hex[:12]
     metrics_exporter.inc_active_clients()
     client_profiler = StageProfiler(budget_ms=20.0)
     client_ring_buffer = RollingMetricsBuffer(capacity=100, budget_ms=20.0)
@@ -1440,6 +1480,29 @@ async def websocket_stream(websocket: WebSocket):
 
             state.latest_telemetry = payload
 
+            # Buffer for BigQuery Dataform warehousing
+            simd_disp = get_simd_dispatcher()
+            bq_rec = bigquery_exporter.format_record(
+                session_id=session_id,
+                timestamp_ns=payload["timestamp_ns"],
+                precision_mode=client_pipeline.get_precision(),
+                hardware_tier=simd_disp.tier_name,
+                stage_pre_ms=t_pre,
+                stage_tensor_ms=t_tensor,
+                stage_synth_ms=t_synth,
+                total_latency_ms=t_total,
+                budget_exceeded=(t_total > 20.0),
+                snr_gain_db=snr_delta,
+                sig_mos=voice_qual.sig_mos,
+                bak_mos=voice_qual.bak_mos,
+                ovrl_mos=voice_qual.ovrl_mos,
+                stoi=voice_qual.stoi_score,
+                pesq=voice_qual.pesq_score,
+                noise_category=ntype,
+                vad_compute_saved_pct=vad_stats.get("compute_saved_pct", 0.0),
+            )
+            bigquery_exporter.buffer_record(bq_rec)
+
             try:
                 await websocket.send_text(json.dumps(payload))
             except Exception:
@@ -1516,6 +1579,30 @@ async def websocket_stream(websocket: WebSocket):
                         out_vis=out_vis,
                         mask_vis=mask_vis,
                     )
+
+                    # Buffer for BigQuery Dataform warehousing
+                    simd_disp = get_simd_dispatcher()
+                    bq_rec = bigquery_exporter.format_record(
+                        session_id=session_id,
+                        timestamp_ns=time.time_ns(),
+                        precision_mode=client_pipeline.get_precision(),
+                        hardware_tier=simd_disp.tier_name,
+                        stage_pre_ms=t_pre,
+                        stage_tensor_ms=t_tensor,
+                        stage_synth_ms=t_synth,
+                        total_latency_ms=t_total,
+                        budget_exceeded=(t_total > 20.0),
+                        snr_gain_db=snr_delta,
+                        sig_mos=voice_qual.sig_mos,
+                        bak_mos=voice_qual.bak_mos,
+                        ovrl_mos=voice_qual.ovrl_mos,
+                        stoi=voice_qual.stoi_score,
+                        pesq=voice_qual.pesq_score,
+                        noise_category="live_mic",
+                        vad_compute_saved_pct=vad_stats.get("compute_saved_pct", 0.0),
+                    )
+                    bigquery_exporter.buffer_record(bq_rec)
+
                     await websocket.send_bytes(egress_bin)
                 continue
 
@@ -1927,6 +2014,30 @@ async def websocket_stream(websocket: WebSocket):
                         }
                     }
                     state.latest_telemetry = live_payload
+
+                    # Buffer for BigQuery Dataform warehousing
+                    simd_disp = get_simd_dispatcher()
+                    bq_rec = bigquery_exporter.format_record(
+                        session_id=session_id,
+                        timestamp_ns=live_payload["timestamp_ns"],
+                        precision_mode=precision_mode,
+                        hardware_tier=simd_disp.tier_name,
+                        stage_pre_ms=t_pre,
+                        stage_tensor_ms=t_tensor,
+                        stage_synth_ms=t_synth,
+                        total_latency_ms=t_total,
+                        budget_exceeded=(t_total > 20.0),
+                        snr_gain_db=snr_delta,
+                        sig_mos=voice_qual.sig_mos,
+                        bak_mos=voice_qual.bak_mos,
+                        ovrl_mos=voice_qual.ovrl_mos,
+                        stoi=voice_qual.stoi_score,
+                        pesq=voice_qual.pesq_score,
+                        noise_category=noise_sig.category,
+                        vad_compute_saved_pct=vad_stats.get("compute_saved_pct", 0.0),
+                    )
+                    bigquery_exporter.buffer_record(bq_rec)
+
                     await websocket.send_text(json.dumps(live_payload))
 
     except WebSocketDisconnect:

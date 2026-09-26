@@ -1,0 +1,6 @@
+{
+  "defaultProject": "edge-ai-audio-profiler",
+  "defaultDataset": "edge_ai_telemetry",
+  "defaultLocation": "us-central1",
+  "assertionDataset": "edge_ai_telemetry_assertions"
+}

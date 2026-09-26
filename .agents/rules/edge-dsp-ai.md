@@ -87,3 +87,13 @@ All stateful telemetry estimators (such as `PerceptualQualityEstimator` maintain
 - **Continuous Multi-Frame Streaming Invariants**: Parity across backends must be verified continuously over $\ge 50$ sequential frames of streaming audio, not merely a single frame from an all-zero initial state. The maximum absolute difference between NumPy FP32 and ONNX Runtime FP32 must satisfy:
   $$\max |\mathbf{M}_{\text{numpy}} - \mathbf{M}_{\text{onnx}}| < 0.005, \quad \max |\mathbf{h}_{\text{numpy}} - \mathbf{h}_{\text{onnx}}| < 0.005$$
 - **INT8 Quantization Fidelity Bounds**: Dynamic 8-bit integer quantization across multi-layer recurrent computational graphs must preserve an end-to-end Signal-to-Quantization-Noise Ratio $\text{SQNR} \ge 25.0\text{ dB}$ and Mean Absolute Error $\text{MAE} < 0.05$ against the unquantized FP32 reference across continuous streaming.
+
+---
+
+## 12. Enterprise Telemetry Schema Integrity & Quality Assertions (BigQuery & Dataform)
+- **Zero Audio Thread Blocking**: Telemetry generated during real-time 62.5 Hz DSP processing loops must never perform synchronous external network I/O or disk flushes. Records must be buffered in a thread-safe, bounded ring buffer (`BigQueryTelemetryExporter`) for asynchronous micro-batch export via NDJSON or streaming ingestion.
+- **Strict Dataform Assertion Compliance**: Every exported telemetry record must validate against Dataform pre-flight assertions before ingestion into BigQuery staging:
+  - **Non-null assertions**: `session_id`, `timestamp_ns`, `total_latency_ms`.
+  - **Bounded numerical ranges**: Frame processing latency $\in [0.0, 1000.0]\text{ ms}$, ITU-T P.835 MOS metrics $\in [1.0, 5.0]$, STOI intelligibility $\in [0.0, 1.0]$, and PESQ listening quality $\in [-0.5, 4.5]$.
+- **Lakehouse Partitioning & Clustering Strategy**: Intermediate and mart tables generated via Dataform SQLX must partition by `date` derived from `timestamp_ns` and cluster by high-cardinality analytical facets (`hardware_tier`, `precision_mode`, `noise_category`) to eliminate full-table scans during fleet latency percentile (`APPROX_QUANTILES`) and psychoacoustic quality evaluations.
+

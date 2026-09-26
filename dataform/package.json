@@ -1,0 +1,8 @@
+{
+  "name": "edge-ai-audio-profiler-dataform",
+  "version": "1.0.0",
+  "description": "Enterprise Fleet Telemetry Warehousing and Dataform ELT Pipeline for Edge AI Audio Denoiser & Profiler",
+  "dependencies": {
+    "@dataform/core": "^3.0.0"
+  }
+}

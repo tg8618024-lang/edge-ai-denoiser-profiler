@@ -1,0 +1,5 @@
+defaultProject: "edge-ai-audio-profiler"
+defaultDataset: "edge_ai_telemetry"
+defaultLocation: "us-central1"
+defaultAssertionDataset: "edge_ai_telemetry_assertions"
+dataformCoreVersion: "3.0.0"

@@ -1,0 +1,30 @@
+config {
+  type: "table",
+  schema: "edge_ai_telemetry",
+  name: "fct_psychoacoustic_quality_summary",
+  description: "Executive fleet audio quality scorecard: ITU-T P.835 DNSMOS, STOI, and PESQ grouped by acoustic noise profile.",
+  bigquery: {
+    partitionBy: "date",
+    clusterBy: ["noise_category", "precision_mode"]
+  }
+}
+
+SELECT
+  date,
+  noise_category,
+  precision_mode,
+  COUNT(*) AS sample_frames,
+  ROUND(AVG(snr_gain_db), 2) AS mean_snr_gain_db,
+  ROUND(STDDEV(snr_gain_db), 2) AS stddev_snr_gain_db,
+  ROUND(AVG(sig_mos), 2) AS mean_sig_mos,
+  ROUND(AVG(bak_mos), 2) AS mean_bak_mos,
+  ROUND(AVG(ovrl_mos), 2) AS mean_ovrl_mos,
+  ROUND(AVG(stoi), 3) AS mean_stoi,
+  ROUND(AVG(pesq), 2) AS mean_pesq,
+  ROUND(COUNTIF(ovrl_mos >= 3.65) / COUNT(*) * 100.0, 1) AS sla_compliance_pct
+FROM
+  ${ref("stg_audio_telemetry")}
+GROUP BY
+  date,
+  noise_category,
+  precision_mode

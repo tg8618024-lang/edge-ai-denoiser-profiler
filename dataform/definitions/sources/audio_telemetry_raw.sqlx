@@ -1,0 +1,7 @@
+config {
+  type: "declaration",
+  database: "edge-ai-audio-profiler",
+  schema: "edge_ai_telemetry",
+  name: "audio_telemetry_raw",
+  description: "Raw streaming telemetry ingested from edge neural audio denoiser & profiler clients."
+}

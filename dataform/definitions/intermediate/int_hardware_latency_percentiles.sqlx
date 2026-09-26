@@ -1,0 +1,32 @@
+config {
+  type: "table",
+  schema: "edge_ai_telemetry",
+  name: "int_hardware_latency_percentiles",
+  description: "Fleet latency percentiles (P50, P90, P95, P99) and budget compliance partitioned by date and hardware tier.",
+  bigquery: {
+    partitionBy: "date",
+    clusterBy: ["hardware_tier", "precision_mode"]
+  }
+}
+
+SELECT
+  date,
+  hardware_tier,
+  precision_mode,
+  COUNT(*) AS total_frames,
+  ROUND(AVG(stage_pre_ms), 3) AS avg_pre_ms,
+  ROUND(AVG(stage_tensor_ms), 3) AS avg_tensor_ms,
+  ROUND(AVG(stage_synth_ms), 3) AS avg_synth_ms,
+  ROUND(AVG(total_latency_ms), 3) AS avg_total_ms,
+  ROUND(APPROX_QUANTILES(total_latency_ms, 100)[OFFSET(50)], 3) AS p50_latency_ms,
+  ROUND(APPROX_QUANTILES(total_latency_ms, 100)[OFFSET(90)], 3) AS p90_latency_ms,
+  ROUND(APPROX_QUANTILES(total_latency_ms, 100)[OFFSET(95)], 3) AS p95_latency_ms,
+  ROUND(APPROX_QUANTILES(total_latency_ms, 100)[OFFSET(99)], 3) AS p99_latency_ms,
+  ROUND(COUNTIF(budget_exceeded) / COUNT(*) * 100.0, 2) AS budget_overrun_pct,
+  ROUND(AVG(vad_compute_saved_pct), 1) AS avg_vad_saved_pct
+FROM
+  ${ref("stg_audio_telemetry")}
+GROUP BY
+  date,
+  hardware_tier,
+  precision_mode

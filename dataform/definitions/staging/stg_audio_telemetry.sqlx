@@ -1,0 +1,43 @@
+config {
+  type: "view",
+  schema: "edge_ai_telemetry",
+  name: "stg_audio_telemetry",
+  description: "Cleaned, deduplicated, and validated edge audio denoising telemetry records.",
+  assertions: {
+    nonNull: ["session_id", "timestamp", "total_latency_ms"],
+    rowConditions: [
+      'total_latency_ms >= 0.0',
+      'total_latency_ms <= 1000.0',
+      'sig_mos BETWEEN 1.0 AND 5.0',
+      'bak_mos BETWEEN 1.0 AND 5.0',
+      'ovrl_mos BETWEEN 1.0 AND 5.0'
+    ]
+  }
+}
+
+SELECT
+  session_id,
+  TIMESTAMP_MICROS(CAST(timestamp_ns / 1000 AS INT64)) AS timestamp,
+  DATE(TIMESTAMP_MICROS(CAST(timestamp_ns / 1000 AS INT64))) AS date,
+  COALESCE(UPPER(TRIM(precision_mode)), 'FP32') AS precision_mode,
+  COALESCE(UPPER(TRIM(hardware_tier)), 'TIER_3_NUMPY') AS hardware_tier,
+  CAST(stage_pre_ms AS FLOAT64) AS stage_pre_ms,
+  CAST(stage_tensor_ms AS FLOAT64) AS stage_tensor_ms,
+  CAST(stage_synth_ms AS FLOAT64) AS stage_synth_ms,
+  CAST(total_latency_ms AS FLOAT64) AS total_latency_ms,
+  COALESCE(budget_exceeded, total_latency_ms > 20.0) AS budget_exceeded,
+  CAST(snr_gain_db AS FLOAT64) AS snr_gain_db,
+  CAST(sig_mos AS FLOAT64) AS sig_mos,
+  CAST(bak_mos AS FLOAT64) AS bak_mos,
+  CAST(ovrl_mos AS FLOAT64) AS ovrl_mos,
+  CAST(stoi AS FLOAT64) AS stoi,
+  CAST(pesq AS FLOAT64) AS pesq,
+  COALESCE(LOWER(TRIM(noise_category)), 'unknown') AS noise_category,
+  CAST(vad_compute_saved_pct AS FLOAT64) AS vad_compute_saved_pct
+FROM
+  ${ref("audio_telemetry_raw")}
+WHERE
+  session_id IS NOT NULL
+  AND timestamp_ns IS NOT NULL
+QUALIFY
+  ROW_NUMBER() OVER (PARTITION BY session_id, timestamp_ns ORDER BY total_latency_ms DESC) = 1
