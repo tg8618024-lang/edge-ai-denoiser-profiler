@@ -225,7 +225,7 @@ All 8 noise presets verified under real-time budgets:
 
 The conventional git commit for this task:
 ```text
-Commit: feat(webgpu): integrate serverless WebGPU compute shader and WASM SIMD testbench into dashboard
+Commit: ac859da feat(webgpu): integrate serverless WebGPU compute shader and WASM SIMD testbench into dashboard
 ```
 
 Modified files:
@@ -233,6 +233,7 @@ Modified files:
 - `src/dashboard/static/index.html`
 - `src/experimental/webgpu_wasm/standalone_denoiser.html`
 - `src/experimental/webgpu_wasm/webgpu_denoiser.js`
+- `src/models/precision.py`
 - `tests/conftest.py`
 - `tests/unit/test_webgpu_wasm.py`
 - `walkthrough.md`
