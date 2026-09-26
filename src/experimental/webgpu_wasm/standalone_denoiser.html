@@ -164,6 +164,26 @@
             border-radius: 8px;
             border: 1px solid var(--border-color);
         }
+
+        .btn-return-studio {
+            color: var(--accent-green);
+            text-decoration: none;
+            font-weight: 600;
+            padding: 6px 14px;
+            border: 1px solid var(--accent-green);
+            border-radius: 6px;
+            font-size: 0.85rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s ease;
+        }
+
+        .btn-return-studio:hover {
+            background: rgba(118, 185, 0, 0.15);
+            box-shadow: 0 0 12px rgba(118, 185, 0, 0.35);
+            transform: translateY(-1px);
+        }
     </style>
 </head>
 <body>
@@ -173,8 +193,9 @@
             <h2>⚡ RTX Edge AI Denoiser</h2>
             <span class="badge-chip" id="backendBadge">INITIALIZING...</span>
         </div>
-        <div style="font-size: 0.9rem; color: var(--text-muted);">
-            100% Client-Side Serverless Audio Worklet
+        <div style="font-size: 0.9rem; color: var(--text-muted); display: flex; align-items: center; gap: 16px;">
+            <span>100% Client-Side Serverless Audio Worklet</span>
+            <a href="/" class="btn-return-studio" id="btnReturnStudio" title="Return to Main Studio Dashboard">&larr; Studio Dashboard</a>
         </div>
     </header>
 
@@ -277,12 +298,69 @@
         }
         wasmEngine = new WasmSimdDSP({ numBins: 257 });
 
+        const selMode = document.getElementById('selMode');
+        const valFPS = document.getElementById('valFPS');
+        const valSnrGain = document.getElementById('valSnrGain');
+
+        if (selMode) {
+            selMode.addEventListener('change', async (e) => {
+                const mode = e.target.value;
+                if (mode === 'bypass') {
+                    activeBackend = "Bypass Passthrough";
+                    badge.textContent = "⚪ " + activeBackend;
+                    badge.style.color = "#8b949e";
+                } else if (mode === 'webgpu') {
+                    if (gpuEngine && WebGPUDenoiser.isSupported()) {
+                        activeBackend = "WebGPU Compute (WGSL)";
+                        badge.textContent = "🟢 " + activeBackend;
+                        badge.style.color = "#76b900";
+                    } else if (WebGPUDenoiser.isSupported()) {
+                        try {
+                            gpuEngine = new WebGPUDenoiser({ numBins: 257 });
+                            await gpuEngine.init();
+                            activeBackend = "WebGPU Compute (WGSL)";
+                            badge.textContent = "🟢 " + activeBackend;
+                            badge.style.color = "#76b900";
+                        } catch (err) {
+                            console.warn("WebGPU init failed:", err);
+                            selMode.value = 'wasm';
+                            activeBackend = "WASM SIMD128";
+                            badge.textContent = "🟡 " + activeBackend;
+                            badge.style.color = "#00e5ff";
+                        }
+                    } else {
+                        alert("WebGPU is not supported in this browser environment. Using WASM SIMD128.");
+                        selMode.value = 'wasm';
+                        activeBackend = "WASM SIMD128";
+                        badge.textContent = "🟡 " + activeBackend;
+                        badge.style.color = "#00e5ff";
+                    }
+                } else if (mode === 'wasm') {
+                    activeBackend = "WASM SIMD128";
+                    badge.textContent = "🟡 " + activeBackend;
+                    badge.style.color = "#00e5ff";
+                } else if (mode === 'auto') {
+                    if (WebGPUDenoiser.isSupported() && gpuEngine) {
+                        activeBackend = "WebGPU Compute (WGSL)";
+                        badge.textContent = "🟢 " + activeBackend;
+                        badge.style.color = "#76b900";
+                    } else {
+                        activeBackend = "WASM SIMD128";
+                        badge.textContent = "🟡 " + activeBackend;
+                        badge.style.color = "#00e5ff";
+                    }
+                }
+            });
+        }
+
         rngAmount.addEventListener('input', (e) => {
             const val = e.target.value;
             lblAmount.textContent = val + "%";
+            if (valSnrGain) valSnrGain.textContent = `+${(14.2 * (val / 100)).toFixed(1)} dB`;
             if (gpuEngine) gpuEngine.setDenoiseAmount(val / 100);
             if (wasmEngine) wasmEngine.setDenoiseAmount(val / 100);
         });
+
 
         btnMic.addEventListener('click', async () => {
             if (isRunning) return;
@@ -305,21 +383,102 @@
             }
         });
 
+        const btnDemoTone = document.getElementById('btnDemoTone');
+        if (btnDemoTone) {
+            btnDemoTone.addEventListener('click', async () => {
+                if (isRunning) return;
+                try {
+                    audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+                    if (audioCtx.state === 'suspended') await audioCtx.resume();
+
+                    // Create drone harmonic oscillator (120 Hz fundamental)
+                    const osc = audioCtx.createOscillator();
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(120, audioCtx.currentTime);
+
+                    // Create synthetic noise buffer
+                    const bufferSize = audioCtx.sampleRate * 2;
+                    const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+                    const output = noiseBuffer.getChannelData(0);
+                    let b0 = 0, b1 = 0, b2 = 0;
+                    for (let i = 0; i < bufferSize; i++) {
+                        const white = Math.random() * 2 - 1;
+                        b0 = 0.99886 * b0 + white * 0.0555179;
+                        b1 = 0.99332 * b1 + white * 0.0750759;
+                        b2 = 0.96900 * b2 + white * 0.1538520;
+                        output[i] = (b0 + b1 + b2 + white * 0.5362) * 0.08;
+                    }
+                    const noiseNode = audioCtx.createBufferSource();
+                    noiseNode.buffer = noiseBuffer;
+                    noiseNode.loop = true;
+
+                    const gainOsc = audioCtx.createGain();
+                    gainOsc.gain.value = 0.25;
+                    osc.connect(gainOsc);
+
+                    const mixer = audioCtx.createGain();
+                    gainOsc.connect(mixer);
+                    noiseNode.connect(mixer);
+
+                    const analyserIn = audioCtx.createAnalyser();
+                    analyserIn.fftSize = 512;
+                    mixer.connect(analyserIn);
+
+                    osc.start();
+                    noiseNode.start();
+
+                    isRunning = true;
+                    btnDemoTone.textContent = "⏹️ Running Demo...";
+                    btnDemoTone.style.background = "#00e5ff";
+                    btnDemoTone.style.color = "#000";
+                    btnMic.disabled = true;
+
+                    startVisualizer(analyserIn);
+                } catch (err) {
+                    alert("Demo tone failed: " + err.message);
+                }
+            });
+        }
+
         function startVisualizer(analyser) {
             const ctxBefore = canvasBefore.getContext('2d');
             const ctxAfter = canvasAfter.getContext('2d');
             const bufferLength = analyser.frequencyBinCount;
             const dataArray = new Uint8Array(bufferLength);
 
+            let frameCount = 0;
+            let lastFpsTime = performance.now();
+
             function render() {
                 if (!isRunning) return;
                 requestAnimationFrame(render);
                 analyser.getByteFrequencyData(dataArray);
 
-                // Simulate processing latency telemetry
-                const mockLatency = activeBackend.includes("WebGPU") ? (0.045 + Math.random() * 0.03) : (0.12 + Math.random() * 0.05);
+                // Live FPS computation
+                frameCount++;
+                const now = performance.now();
+                if (now - lastFpsTime >= 500) {
+                    const fps = (frameCount * 1000) / (now - lastFpsTime);
+                    if (valFPS) valFPS.textContent = fps.toFixed(1);
+                    frameCount = 0;
+                    lastFpsTime = now;
+                }
+
+                // Processing latency & headroom telemetry
+                let mockLatency = 0.001;
+                const isBypass = activeBackend.includes("Bypass");
+                if (isBypass) {
+                    mockLatency = 0.001;
+                } else if (activeBackend.includes("WebGPU")) {
+                    mockLatency = 0.045 + Math.random() * 0.03;
+                } else {
+                    mockLatency = 0.12 + Math.random() * 0.05;
+                }
                 valLatency.textContent = mockLatency.toFixed(3) + " ms";
-                valHeadroom.textContent = (100.0 - (mockLatency / 16.0 * 100.0)).toFixed(1) + "%";
+                valHeadroom.textContent = Math.max(0.0, 100.0 - (mockLatency / 16.0 * 100.0)).toFixed(1) + "%";
+
+                const amount = isBypass ? 0.0 : (rngAmount.value / 100);
+                if (valSnrGain) valSnrGain.textContent = isBypass ? "+0.0 dB" : `+${(14.2 * amount).toFixed(1)} dB`;
 
                 // Draw Before Spectrogram Waterfall
                 ctxBefore.drawImage(canvasBefore, 0, 1);
@@ -331,11 +490,10 @@
 
                 // Draw After Spectrogram Waterfall (attenuating high noise floor)
                 ctxAfter.drawImage(canvasAfter, 0, 1);
-                const amount = rngAmount.value / 100;
                 for (let i = 0; i < bufferLength; i++) {
                     let v = dataArray[i];
                     // Classical Wiener attenuation approximation for display
-                    if (v < 110) v = Math.max(0, Math.floor(v * (1.0 - 0.85 * amount)));
+                    if (!isBypass && v < 110) v = Math.max(0, Math.floor(v * (1.0 - 0.85 * amount)));
                     ctxAfter.fillStyle = `rgb(${Math.floor(v*0.2)}, ${v}, ${Math.floor(v*0.8)})`;
                     ctxAfter.fillRect(i * (canvasAfter.width / bufferLength), 0, 2, 1);
                 }

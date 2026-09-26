@@ -65,7 +65,22 @@ export class WebGPUDenoiser {
 
         this.device = await this.adapter.requestDevice();
 
-        const wgslCode = shaderSource || this.getDefaultShaderSource();
+        let wgslCode = shaderSource;
+        if (!wgslCode) {
+            try {
+                const shaderUrl = new URL('denoiser_shader.wgsl', import.meta.url);
+                const resp = await fetch(shaderUrl);
+                if (resp && resp.ok) {
+                    wgslCode = await resp.text();
+                }
+            } catch (e) {
+                // Fallback to embedded default shader if fetch fails (e.g. offline/file://)
+                wgslCode = null;
+            }
+        }
+        if (!wgslCode) {
+            wgslCode = this.getDefaultShaderSource();
+        }
         const shaderModule = this.device.createShaderModule({
             label: "EdgeAIDenoiserShader",
             code: wgslCode

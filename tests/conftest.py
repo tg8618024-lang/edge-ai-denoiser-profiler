@@ -25,6 +25,10 @@ PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
+venv_site = os.path.join(PROJECT_ROOT, ".venv", "Lib", "site-packages")
+if os.path.isdir(venv_site) and venv_site not in sys.path:
+    sys.path.append(venv_site)
+
 
 # ---------------------------------------------------------------------------
 # Authoritative Reference Synthetic Audio & Noise Generator

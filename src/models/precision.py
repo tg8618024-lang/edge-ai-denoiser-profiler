@@ -291,6 +291,48 @@ class PrecisionEngine:
                 self.int8_weights[k] = arr.copy()
                 self.int8_scales[k] = 1.0
 
+        # Warmup Numba JIT kernel once during cache build so live streaming never suffers JIT compilation pauses
+        if (
+            _HAS_NUMBA
+            and "W1" in self.int8_weights_t
+            and "W2" in self.int8_weights_t
+            and "W3" in self.int8_weights_t
+        ):
+            try:
+                dummy_x = np.zeros(self.input_dim, dtype=np.float32)
+                dummy_h = np.zeros(self.hidden_dim, dtype=np.float32)
+                dummy_mask = np.zeros(self.output_dim, dtype=np.float32)
+                has_rec = "W_rec" in self.int8_weights_t
+                _jit_int8_forward(
+                    dummy_x,
+                    self.int8_weights_t["W1"],
+                    self.int8_folded_offsets["W1"],
+                    self.int8_scales["W1"],
+                    self.fp32_weights["b1"],
+                    self.int8_weights_t["W2"],
+                    self.int8_folded_offsets["W2"],
+                    self.int8_scales["W2"],
+                    self.fp32_weights["b2"],
+                    self.int8_weights_t.get("W_rec", self.int8_weights_t["W2"]),
+                    self.int8_folded_offsets.get("W_rec", self.int8_folded_offsets["W2"]),
+                    self.int8_scales.get("W_rec", 1.0),
+                    has_rec,
+                    self.int8_weights_t["W3"],
+                    self.int8_folded_offsets["W3"],
+                    self.int8_scales["W3"],
+                    self.fp32_weights["b3"],
+                    dummy_h,
+                    self._buf_x_u8,
+                    self._buf_a1_f32,
+                    self._buf_a1_u8,
+                    self._buf_a2_f32,
+                    self._buf_a2_u8,
+                    self._buf_h_u8,
+                    dummy_mask,
+                )
+            except Exception:
+                pass
+
     @staticmethod
     def quantize_tensor(w: np.ndarray) -> Tuple[np.ndarray, float]:
         """Symmetric affine INT8 quantization: s = max(|W|) / 127.0."""

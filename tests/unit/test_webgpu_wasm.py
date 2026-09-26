@@ -10,6 +10,10 @@ PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
+venv_site = os.path.join(PROJECT_ROOT, ".venv", "Lib", "site-packages")
+if os.path.isdir(venv_site) and venv_site not in sys.path:
+    sys.path.append(venv_site)
+
 
 # ============================================================================
 # 1. WGSL Compute Shader Syntax & Binding Declarations
@@ -63,6 +67,7 @@ def test_webgpu_denoiser_js_module():
     assert "destroy()" in js
     assert "device.createComputePipeline" in js
     assert "dispatchWorkgroups" in js
+    assert "denoiser_shader.wgsl" in js
 
 
 def test_wasm_simd_dsp_js_module():
@@ -104,8 +109,13 @@ def test_standalone_denoiser_html_file():
     assert 'id="canvasAfter"' in html
     assert 'id="btnMic"' in html
     assert 'id="rngAmount"' in html
+    assert 'id="selMode"' in html
+    assert 'id="valFPS"' in html
+    assert 'id="valSnrGain"' in html
+    assert 'id="btnReturnStudio"' in html
     assert "import { WebGPUDenoiser } from './webgpu_denoiser.js'" in html
     assert "import { WasmSimdDSP } from './wasm_simd_dsp.js'" in html
+    assert 'href="/"' in html
 
 
 # ============================================================================
@@ -157,3 +167,92 @@ def test_webgpu_mathematical_logic_simulation():
     amount_zero = 0.0
     eff_zero = (1.0 - amount_zero) + amount_zero * gain
     np.testing.assert_allclose(eff_zero, 1.0, atol=1e-6)
+
+
+# ============================================================================
+# 5. FastAPI Endpoints & Route Mounting
+# ============================================================================
+
+def test_webgpu_fastapi_routes():
+    """Verify GET /webgpu, /webgpu/, /webgpu/index.html, and standalone_denoiser.html return HTTP 200 with text/html."""
+    from fastapi.testclient import TestClient
+    from src.dashboard.app import app
+
+    client = TestClient(app)
+    for route in ["/webgpu", "/webgpu/", "/webgpu/index.html", "/webgpu/standalone_denoiser.html"]:
+        resp = client.get(route)
+        assert resp.status_code == 200, f"Route {route} failed with status {resp.status_code}"
+        content_type = resp.headers.get("content-type", "").lower()
+        assert "text/html" in content_type, f"Expected text/html for {route}, got {content_type}"
+        assert "RTX Edge AI Denoiser" in resp.text
+        assert 'href="/"' in resp.text
+
+
+# ============================================================================
+# 6. WebGPU & WASM Static Assets Serving
+# ============================================================================
+
+def test_webgpu_static_assets_serving():
+    """Verify denoiser_shader.wgsl, webgpu_denoiser.js, and wasm_simd_dsp.js are served correctly."""
+    from fastapi.testclient import TestClient
+    from src.dashboard.app import app
+
+    client = TestClient(app)
+
+    # 1. WGSL compute shader (.wgsl -> text/wgsl)
+    for path in ["/webgpu/denoiser_shader.wgsl", "/denoiser_shader.wgsl"]:
+        resp_wgsl = client.get(path)
+        assert resp_wgsl.status_code == 200
+        ct_wgsl = resp_wgsl.headers.get("content-type", "").lower()
+        assert "text/wgsl" in ct_wgsl, f"Expected text/wgsl for {path}, got {ct_wgsl}"
+        assert "@compute" in resp_wgsl.text
+        assert "@workgroup_size(64)" in resp_wgsl.text
+
+    # 2. WebGPU orchestrator JS
+    for path in ["/webgpu/webgpu_denoiser.js", "/webgpu_denoiser.js"]:
+        resp_js = client.get(path)
+        assert resp_js.status_code == 200
+        ct_js = resp_js.headers.get("content-type", "").lower()
+        assert "javascript" in ct_js, f"Expected javascript for {path}, got {ct_js}"
+        assert "WebGPUDenoiser" in resp_js.text
+
+    # 3. WASM SIMD fallback JS
+    for path in ["/webgpu/wasm_simd_dsp.js", "/wasm_simd_dsp.js"]:
+        resp_wasm = client.get(path)
+        assert resp_wasm.status_code == 200
+        ct_wasm = resp_wasm.headers.get("content-type", "").lower()
+        assert "javascript" in ct_wasm, f"Expected javascript for {path}, got {ct_wasm}"
+        assert "WasmSimdDSP" in resp_wasm.text
+
+
+# ============================================================================
+# 7. Dashboard UI Navigation Integration
+# ============================================================================
+
+def test_dashboard_ui_webgpu_navigation():
+    """Verify src/dashboard/static/index.html contains /webgpu navigation anchors in workspace tabs and telemetry."""
+    index_path = os.path.join(PROJECT_ROOT, "src", "dashboard", "static", "index.html")
+    assert os.path.exists(index_path)
+
+    with open(index_path, "r", encoding="utf-8") as f:
+        html = f.read()
+
+    # Anchor presence
+    assert "/webgpu" in html
+
+    # Verify presence in #workspaceTabsBar
+    tabs_idx = html.find('id="workspaceTabsBar"')
+    assert tabs_idx != -1, "#workspaceTabsBar not found in index.html"
+    tabs_end = html.find('</nav>', tabs_idx)
+    tabs_html = html[tabs_idx:tabs_end]
+    assert "/webgpu" in tabs_html, "/webgpu not found inside #workspaceTabsBar"
+    assert "tabBtnWebGpu" in tabs_html
+
+    # Verify presence in #viewTelemetry
+    telemetry_idx = html.find('id="viewTelemetry"')
+    assert telemetry_idx != -1, "#viewTelemetry not found in index.html"
+    telemetry_html = html[telemetry_idx:]
+    assert "/webgpu" in telemetry_html, "/webgpu not found inside #viewTelemetry"
+    assert "linkWebGpuTelemetryHeader" in telemetry_html
+    assert "linkWebGpuTelemetryBanner" in telemetry_html
+

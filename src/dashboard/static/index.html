@@ -91,6 +91,13 @@
         <span class="tab-sub">3-Stage Latency &bull; FP32 / FP16 / INT8</span>
       </div>
     </button>
+    <a href="/webgpu" target="_blank" rel="noopener noreferrer" class="tab-btn" id="tabBtnWebGpu" style="text-decoration: none;" title="Launch Standalone Client-Side WebGPU &amp; WASM SIMD Engine in new tab">
+      <span class="tab-icon">&#9889;</span>
+      <div class="tab-text-wrap">
+        <span class="tab-title" style="color: var(--accent-cyan, #00E5FF);">WEBGPU / WASM</span>
+        <span class="tab-sub">Zero-Install &bull; WGSL Shader &bull; SIMD</span>
+      </div>
+    </a>
     <button class="tab-btn tab-all-panels" data-view="viewAll">
       <span class="tab-icon">&#128065;</span>
       <div class="tab-text-wrap">
@@ -1443,10 +1450,32 @@
               <div class="telemetry-card panel-card">
         <div class="card-header">
           <h2 class="panel-title"><span class="title-icon">&#9201;</span> NVIDIA HARDWARE LATENCY PROFILER</h2>
-          <div class="budget-badge">REAL-TIME BUDGET: 20.0 ms</div>
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <a href="/webgpu" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-cyan" id="linkWebGpuTelemetryHeader" style="text-decoration: none; font-size: 0.75rem; padding: 4px 12px; font-weight: 700; display: inline-flex; align-items: center; gap: 5px;" title="Launch Standalone Client-Side WebGPU &amp; WASM SIMD Testbench in new tab">
+              <span>&#9889; LAUNCH WEBGPU ENGINE</span>
+              <span style="font-size: 0.75rem;">&nearr;</span>
+            </a>
+            <div class="budget-badge">REAL-TIME BUDGET: 20.0 ms</div>
+          </div>
         </div>
 
         <div class="telemetry-body">
+          <!-- WebGPU In-Browser Standalone Testbench Launcher Banner -->
+          <div class="webgpu-launch-banner" style="background: linear-gradient(135deg, rgba(0, 229, 255, 0.08), rgba(118, 185, 0, 0.08)); border: 1px solid rgba(0, 229, 255, 0.25); border-radius: 8px; padding: 10px 16px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; gap: 14px;">
+            <div class="banner-text">
+              <div style="font-weight: 700; font-size: 0.82rem; color: var(--accent-cyan, #00e5ff); display: flex; align-items: center; gap: 8px;">
+                <span>&#9889; CLIENT-SIDE WEBGPU / WASM SIMD STANDALONE ENGINE</span>
+                <span class="badge-sub" style="color: #76b900; border: 1px solid rgba(118, 185, 0, 0.5); padding: 1px 6px; border-radius: 4px; font-size: 0.68rem; font-weight: 600;">ZERO-INSTALL</span>
+              </div>
+              <div style="font-size: 0.74rem; color: #8b949e; margin-top: 2px;">
+                Execute 64-thread WGSL compute shaders and 4-lane SIMD128 DSP directly in browser with 0 ms server roundtrip.
+              </div>
+            </div>
+            <a href="/webgpu" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-cyan" id="linkWebGpuTelemetryBanner" style="text-decoration: none; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; font-weight: 700; padding: 6px 12px; font-size: 0.75rem;" title="Launch Standalone WebGPU Engine in a new tab">
+              <span>LAUNCH TESTBENCH</span>
+              <span style="font-size: 0.75rem;">&nearr;</span>
+            </a>
+          </div>
           <!-- Circular Headroom Gauge -->
           <div class="headroom-gauge-container">
             <svg class="gauge-svg" viewBox="0 0 160 160">

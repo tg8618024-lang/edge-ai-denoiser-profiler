@@ -17,6 +17,7 @@ import asyncio
 import threading
 import io
 import uuid
+import mimetypes
 from typing import Dict, Any, Optional, List
 import numpy as np
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Request, Query, Response
@@ -24,10 +25,15 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+# Register WGSL MIME type for WebGPU compute shaders
+mimetypes.add_type("text/wgsl", ".wgsl")
+
 # Ensure project root in sys.path
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
+
+WEBGPU_DIR = os.path.join(PROJECT_ROOT, "src", "experimental", "webgpu_wasm")
 
 from src.audio.pipeline import AudioDenoisingPipeline
 from src.audio.stream import AudioStreamer
@@ -200,6 +206,45 @@ async def get_index():
     if os.path.isfile(index_path):
         return FileResponse(index_path)
     return JSONResponse({"status": "active", "message": "Dashboard frontend index.html not yet installed"})
+
+
+@app.get("/webgpu")
+@app.get("/webgpu/")
+@app.get("/webgpu/index.html")
+async def get_webgpu():
+    """Serves the standalone client-side WebGPU & WASM SIMD in-browser testbench."""
+    webgpu_index = os.path.join(WEBGPU_DIR, "standalone_denoiser.html")
+    if os.path.isfile(webgpu_index):
+        return FileResponse(webgpu_index, media_type="text/html")
+    raise HTTPException(status_code=404, detail="WebGPU standalone testbench not found")
+
+
+@app.get("/webgpu_denoiser.js")
+async def get_webgpu_denoiser_root_js():
+    file_path = os.path.join(WEBGPU_DIR, "webgpu_denoiser.js")
+    if os.path.isfile(file_path):
+        return FileResponse(file_path, media_type="application/javascript")
+    raise HTTPException(status_code=404, detail="WebGPU orchestrator script not found")
+
+
+@app.get("/wasm_simd_dsp.js")
+async def get_wasm_simd_root_js():
+    file_path = os.path.join(WEBGPU_DIR, "wasm_simd_dsp.js")
+    if os.path.isfile(file_path):
+        return FileResponse(file_path, media_type="application/javascript")
+    raise HTTPException(status_code=404, detail="WASM SIMD script not found")
+
+
+@app.get("/denoiser_shader.wgsl")
+async def get_denoiser_shader_root_wgsl():
+    file_path = os.path.join(WEBGPU_DIR, "denoiser_shader.wgsl")
+    if os.path.isfile(file_path):
+        return FileResponse(file_path, media_type="text/wgsl")
+    raise HTTPException(status_code=404, detail="WGSL shader not found")
+
+
+if os.path.isdir(WEBGPU_DIR):
+    app.mount("/webgpu", StaticFiles(directory=WEBGPU_DIR, html=True), name="webgpu")
 
 
 @app.get("/metrics")
