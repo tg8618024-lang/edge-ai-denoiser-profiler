@@ -1824,6 +1824,7 @@ async def websocket_stream(websocket: WebSocket):
                     )
 
                     # Buffer for BigQuery Dataform warehousing
+                    vad_stats = client_pipeline.get_vad_stats()
                     simd_disp = get_simd_dispatcher()
                     bq_rec = bigquery_exporter.format_record(
                         session_id=session_id,

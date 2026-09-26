@@ -129,7 +129,10 @@ All stateful telemetry estimators (such as `PerceptualQualityEstimator` maintain
 - **INT8 Pareto Efficiency**: Verify that 8-bit integer inference achieves $\ge 70\%$ memory footprint reduction with $< 0.20\text{ dB}$ SNR delta against FP32.
 - **Strict Perceptual Thresholds**: Telemetry profiler must assert compliance with ITU-T P.835 DNSMOS ($\text{SIG} \ge 3.5$, $\text{BAK} \ge 4.0$, $\text{OVRL} \ge 3.6$) and 1/3-octave STOI ($\ge 0.90$).
 
+---
 
-
-
+## 17. Multi-Path Handler Variable Scope Parity & Silent Exception Prevention
+- **Variable Scope Parity Across Dispatch Branches**: In multi-path WebSocket/HTTP handlers (binary vs. JSON vs. streaming loop), every variable used in shared downstream code (BigQuery export, Prometheus metrics, telemetry formatting) must be independently fetched/initialized in each dispatch branch. Never rely on cross-branch variable leakage.
+- **Silent Exception Masking**: Broad `except Exception` handlers in streaming loops must always log the exception before breaking. When tests hang instead of failing, suspect a `NameError` or `AttributeError` being silently swallowed.
+- **Copy-Paste Audit on Telemetry Changes**: When adding telemetry or export code to one path, immediately `grep` for all referenced variables across sibling paths in the same handler to verify complete initialization.
 
