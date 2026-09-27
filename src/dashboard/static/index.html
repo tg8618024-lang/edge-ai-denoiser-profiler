@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>NVIDIA RTX Broadcast &middot; Edge AI Audio Denoiser &amp; Signal Testbench</title>
   <link rel="stylesheet" href="/static/styles.css" />
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%2376B900' width='100' height='100' rx='20'/><path d='M30 50 L45 65 L70 35' stroke='%23080c10' stroke-width='12' fill='none' stroke-linecap='round'/></svg>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -116,7 +117,7 @@
   <!-- ========================================================================= -->
   <!-- WORKSPACE VIEWS CONTAINER (DE-CLUTTERED WORKSTATION ARCHITECTURE)         -->
   <!-- ========================================================================= -->
-  <div class="workspace-views-container" id="workspaceViewsContainer">
+  <main class="workspace-views-container" id="workspaceViewsContainer" role="main">
 
     <!-- VIEW 1: BROADCAST STUDIO (DEFAULT, UNCLUTTERED EVERYDAY EXPERIENCE) -->
     <div class="workspace-view active" id="viewBroadcast">
@@ -381,7 +382,7 @@
       <div id="uploadControls" class="control-subgroup hidden">
         <label class="section-label">DRAG &amp; DROP AUDIO FILE (.WAV)</label>
         <div class="upload-dropzone" id="uploadDropzone">
-          <input type="file" id="wavFileInput" accept=".wav,audio/wav" style="display:none;" />
+          <input type="file" id="wavFileInput" accept=".wav,audio/wav" aria-label="Upload custom WAV audio file" style="display:none;" />
           <div class="dropzone-icon">&#128229;</div>
           <div class="dropzone-title">DROP WAV FILE HERE OR CLICK TO BROWSE</div>
           <div class="dropzone-sub">Supports 16-bit / 24-bit PCM &middot; Auto-resampled to 16 kHz Mono &middot; Up to 30s</div>
@@ -436,7 +437,7 @@
           <span class="intensity-badge text-accent" id="suppressionValue">100% (MAXIMUM ISOLATION)</span>
         </div>
         <div class="slider-container">
-          <input type="range" id="suppressionSlider" min="0" max="100" value="100" step="5" class="custom-slider" />
+          <input type="range" id="suppressionSlider" min="0" max="100" value="100" step="5" class="custom-slider" aria-label="Noise suppression intensity percentage" />
         </div>
         <div class="intensity-quick-presets">
           <button class="btn btn-chip" data-intensity="0.25">25% Natural</button>
@@ -450,12 +451,12 @@
       <div class="ab-toggle-section">
         <label class="section-label">A/B DIRECT MONITORING COMPARISON</label>
         <div class="ab-switch-container">
-          <div class="ab-switch-label" id="labelA">A: NOISY INPUT</div>
+          <label class="ab-switch-label" id="labelA" for="abToggleCheckbox" style="cursor: pointer;">A: NOISY INPUT</label>
           <label class="switch">
-            <input type="checkbox" id="abToggleCheckbox" checked>
+            <input type="checkbox" id="abToggleCheckbox" checked aria-label="Toggle between raw noisy input A and cleaned voice output B">
             <span class="slider round"></span>
           </label>
-          <div class="ab-switch-label active" id="labelB">B: DENOISED OUTPUT</div>
+          <label class="ab-switch-label active" id="labelB" for="abToggleCheckbox" style="cursor: pointer;">B: DENOISED OUTPUT</label>
         </div>
         <div class="volume-slider-row">
           <label for="volumeSlider">MONITOR VOLUME:</label>
@@ -832,7 +833,7 @@
       <div class="live-translate-input-row">
         <div class="input-with-icon">
           <span class="input-lead-icon">&#9997;&#65039;</span>
-          <input type="text" id="liveTranslateInput" class="custom-input live-text-input" placeholder="Type or speak any custom text (e.g. 'Hello and welcome', 'Audio denoising active', 'crystal clean voice')..." />
+          <input type="text" id="liveTranslateInput" class="custom-input live-text-input" aria-label="Custom speech text to translate" placeholder="Type or speak any custom text (e.g. 'Hello and welcome', 'Audio denoising active', 'crystal clean voice')..." />
         </div>
         <button id="btnLiveTranslateMic" class="btn btn-mic-speak" title="Speak custom text using Web Speech Recognition">
           <span class="mic-speak-icon">&#127908;</span> SPEAK
@@ -935,7 +936,7 @@
           </div>
           <div class="dual-toggle-wrap">
             <label class="switch switch-sm">
-              <input type="checkbox" id="toggleEqMaster">
+              <input type="checkbox" id="toggleEqMaster" aria-label="5-band studio parametric equalizer master toggle">
               <span class="slider round"></span>
             </label>
             <span class="badge-new" id="badgeEqState">BYPASS</span>
@@ -1063,7 +1064,7 @@
           </div>
           <div class="dual-toggle-wrap">
             <label class="switch switch-sm">
-              <input type="checkbox" id="toggleStudioSuite">
+              <input type="checkbox" id="toggleStudioSuite" aria-label="Studio broadcast sound quality and de-reverberation master toggle">
               <span class="slider round"></span>
             </label>
             <span class="badge-new" id="badgeStudioState">BYPASS</span>
@@ -1077,7 +1078,7 @@
             <label class="control-label" for="sliderDereverb">&#127963;&#65039; ROOM DE-REVERBERATION (RT60 ECHO REMOVAL):</label>
             <span class="control-val text-accent" id="dereverbValue">0% (Bypass)</span>
           </div>
-          <input type="range" id="sliderDereverb" min="0" max="100" value="0" step="5" class="range-slider">
+          <input type="range" id="sliderDereverb" min="0" max="100" value="0" step="5" class="range-slider" aria-label="Room de-reverberation intensity percentage">
           <div class="studio-hints-row">
             <span>0% Direct Mic</span>
             <span>30% Living Room</span>
@@ -1091,8 +1092,8 @@
           <!-- Dynamic Range Compressor -->
           <div class="studio-module-card">
             <div class="module-header">
-              <label class="module-title">&#127946; BROADCAST COMPRESSOR</label>
-              <input type="checkbox" id="toggleCompressor" checked class="module-chk">
+              <label class="module-title" for="toggleCompressor">&#127946; BROADCAST COMPRESSOR</label>
+              <input type="checkbox" id="toggleCompressor" checked class="module-chk" aria-label="Toggle broadcast dynamic compressor">
             </div>
             <p class="module-sub">Soft-knee vocal leveler (-18 dBFS threshold, 3.5:1 ratio).</p>
             <div class="meter-row">
@@ -1104,8 +1105,8 @@
           <!-- Sibilance De-Esser -->
           <div class="studio-module-card">
             <div class="module-header">
-              <label class="module-title">&#127908; SIBILANCE DE-ESSER</label>
-              <input type="checkbox" id="toggleDeesser" checked class="module-chk">
+              <label class="module-title" for="toggleDeesser">&#127908; SIBILANCE DE-ESSER</label>
+              <input type="checkbox" id="toggleDeesser" checked class="module-chk" aria-label="Toggle sibilance de-esser">
             </div>
             <p class="module-sub">4.5 - 7.5 kHz dynamic bandpass sibilance suppression.</p>
             <div class="meter-row">
@@ -1117,8 +1118,8 @@
           <!-- Analog Warmth & Limiter -->
           <div class="studio-module-card">
             <div class="module-header">
-              <label class="module-title">&#128251; TAPE WARMTH &amp; LIMITER</label>
-              <input type="checkbox" id="toggleWarmth" checked class="module-chk">
+              <label class="module-title" for="toggleWarmth">&#128251; TAPE WARMTH &amp; LIMITER</label>
+              <input type="checkbox" id="toggleWarmth" checked class="module-chk" aria-label="Toggle analog tape warmth and limiter">
             </div>
             <p class="module-sub">Analog tube/tape harmonic warmth + -1.0 dBFS ceiling.</p>
             <div class="meter-row">
@@ -1392,7 +1393,7 @@
           <label class="section-label">&#9889; DUAL-MODEL A/B ARENA &amp; CROSSFADER</label>
           <div class="dual-toggle-wrap">
             <label class="switch switch-sm">
-              <input type="checkbox" id="toggleDualModel">
+              <input type="checkbox" id="toggleDualModel" aria-label="Toggle concurrent dual-model A/B arena execution">
               <span class="slider round"></span>
             </label>
             <span class="badge-new" id="badgeDualState">OFFLINE</span>
@@ -1406,7 +1407,7 @@
             <span class="cross-blend-pct text-cyan" id="crossBlendPct">50% / 50%</span>
             <span class="cross-label b" id="labelModelB">MODEL B: WIENER DSP</span>
           </div>
-          <input type="range" id="sliderCrossfade" min="0" max="100" value="50" class="range-slider crossfade-slider">
+          <input type="range" id="sliderCrossfade" min="0" max="100" value="50" class="range-slider crossfade-slider" aria-label="Neural Network to Wiener DSP audio crossfader slider">
         </div>
 
         <div class="dual-metrics-comparison-grid">
@@ -1692,8 +1693,7 @@
         </div>
       </div>
     </div>
-
-  </div>
+  </main>
 
     <!-- Studio Footer -->
   <footer class="app-footer">

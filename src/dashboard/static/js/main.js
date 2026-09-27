@@ -131,10 +131,16 @@ export function initApp() {
     })
     .catch(() => {});
 
-  // Start 60 FPS Render Loop
+  // Start 60 FPS Render Loop (throttled when tab is hidden or view is inactive)
   function renderLoop() {
-    renderOscilloscope();
-    renderSpectrograms();
+    if (!document.hidden) {
+      const broadcastView = document.getElementById("viewBroadcast");
+      const isBroadcastActive = broadcastView && (broadcastView.classList.contains("active") || broadcastView.classList.contains("view-all-active"));
+      if (isBroadcastActive) {
+        renderOscilloscope();
+        renderSpectrograms();
+      }
+    }
     requestAnimationFrame(renderLoop);
   }
   requestAnimationFrame(renderLoop);

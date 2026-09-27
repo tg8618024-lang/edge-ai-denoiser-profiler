@@ -45,6 +45,15 @@ export function drawEqCurve(curve = state.latestEqCurve) {
   if (!ctxEq) ctxEq = canvasEqCurve.getContext("2d");
   if (!ctxEq) return;
 
+  const rect = canvasEqCurve.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  const targetW = Math.round(rect.width * dpr);
+  const targetH = Math.round((rect.height || 200) * dpr);
+  if (targetW > 0 && (canvasEqCurve.width !== targetW || canvasEqCurve.height !== targetH)) {
+    canvasEqCurve.width = targetW;
+    canvasEqCurve.height = targetH;
+  }
+
   const w = canvasEqCurve.width;
   const h = canvasEqCurve.height;
 
@@ -224,6 +233,7 @@ export function initParametricEq() {
 
       if (state.eqActiveBand >= 0) {
         state.eqIsDragging = true;
+        canvasEqCurve.style.cursor = "grabbing";
         activateEqUI(true);
         eqBandCards.forEach((c, i) => {
           if (i === state.eqActiveBand) c.classList.add("selected");
@@ -231,6 +241,30 @@ export function initParametricEq() {
         });
         drawEqCurve(state.latestEqCurve);
       }
+    });
+
+    canvasEqCurve.addEventListener("mousemove", (e) => {
+      if (state.eqIsDragging) return;
+      const rect = canvasEqCurve.getBoundingClientRect();
+      const scaleX = canvasEqCurve.width / rect.width;
+      const scaleY = canvasEqCurve.height / rect.height;
+      const mx = (e.clientX - rect.left) * scaleX;
+      const my = (e.clientY - rect.top) * scaleY;
+
+      let nearBand = false;
+      const hitRadius = 24.0;
+      state.eqBands.forEach((band) => {
+        const bx = freqToX(band.freq, canvasEqCurve.width);
+        const by = gainToY(band.gain, canvasEqCurve.height);
+        if (Math.hypot(mx - bx, my - by) < hitRadius) {
+          nearBand = true;
+        }
+      });
+      canvasEqCurve.style.cursor = nearBand ? "grab" : "crosshair";
+    });
+
+    canvasEqCurve.addEventListener("mouseleave", () => {
+      if (!state.eqIsDragging) canvasEqCurve.style.cursor = "default";
     });
 
     window.addEventListener("mousemove", (e) => {

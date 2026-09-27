@@ -31,6 +31,40 @@
   padding: 0;
 }
 
+/* Global Custom Dark Glassmorphism Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #080c10;
+}
+::-webkit-scrollbar-thumb {
+  background: #1a2332;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--nvidia-green);
+}
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #1a2332 #080c10;
+}
+
+/* Global High-Affordance Keyboard Focus Indicators */
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+.tab-btn:focus-visible,
+.btn-view:focus-visible,
+.btn:focus-visible,
+.btn-prompt-chip:focus-visible,
+.btn-chip:focus-visible {
+  outline: 2px solid var(--nvidia-green) !important;
+  outline-offset: 2px !important;
+  box-shadow: 0 0 10px rgba(118, 185, 0, 0.5) !important;
+}
+
 body.cyber-theme {
   background-color: var(--bg-dark);
   background-image: 
@@ -475,10 +509,10 @@ body.cyber-theme {
   letter-spacing: 0.05em;
 }
 
-.tag-bad { background: rgba(255, 82, 82, 0.2); color: #ff8a80; }
-.tag-ai { background: rgba(0, 229, 255, 0.2); color: var(--cyan); }
-.tag-good { background: rgba(118, 185, 0, 0.2); color: var(--nvidia-green-bright); }
-.tag-trash { background: rgba(179, 136, 255, 0.2); color: var(--purple); }
+.tag-bad { background: rgba(255, 82, 82, 0.15); color: #FF5252; border: 1px solid rgba(255, 82, 82, 0.45); font-weight: 700; }
+.tag-ai { background: rgba(0, 229, 255, 0.15); color: #00E5FF; border: 1px solid rgba(0, 229, 255, 0.45); font-weight: 700; }
+.tag-good { background: rgba(118, 185, 0, 0.15); color: #76B900; border: 1px solid rgba(118, 185, 0, 0.45); font-weight: 700; }
+.tag-trash { background: rgba(179, 136, 255, 0.15); color: #B388FF; border: 1px solid rgba(179, 136, 255, 0.45); font-weight: 700; }
 
 .step-info {
   font-size: 0.72rem;
@@ -1335,6 +1369,9 @@ input:checked + .slider:before {
   height: 200px;
   display: block;
   background: #030605;
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
+  image-rendering: pixelated;
 }
 
 .spec-freq-ticks {
@@ -1710,13 +1747,14 @@ body.mode-pro .hero-storyboard-panel {
 }
 
 .shortcut-key {
-  background: rgba(118, 185, 0, 0.2);
-  color: var(--nvidia-green-bright);
-  border: 1px solid rgba(118, 185, 0, 0.4);
-  padding: 1px 5px;
+  background: var(--nvidia-green);
+  color: #080c10 !important;
+  border: 1px solid #76B900;
+  padding: 2px 6px;
   border-radius: 3px;
-  font-weight: 700;
-  font-size: 0.6rem;
+  font-weight: 800;
+  font-size: 0.62rem;
+  letter-spacing: 0.04em;
 }
 
 .upload-dropzone {
@@ -3095,11 +3133,12 @@ body.mode-pro .hero-storyboard-panel {
 }
 
 .dual-crossfader-wrap {
-  margin: 14px 0 16px 0;
+  margin: 14px auto 16px auto;
+  max-width: 520px;
   background: rgba(0, 0, 0, 0.3);
-  padding: 10px 14px;
-  border-radius: 6px;
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 12px 18px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .crossfader-labels {
@@ -3790,42 +3829,39 @@ body.mode-pro .hero-storyboard-panel {
 /* ========================================================================= */
 .workspace-tabs-bar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   background: rgba(13, 17, 23, 0.95);
   backdrop-filter: blur(20px);
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  padding: 10px 24px;
+  padding: 8px 20px;
   position: sticky;
   top: 68px;
   z-index: 90;
-  overflow-x: auto;
-  scrollbar-width: thin;
+  overflow-x: hidden;
+  max-width: 100%;
 }
 
 .workspace-tabs-bar::-webkit-scrollbar {
-  height: 4px;
-}
-.workspace-tabs-bar::-webkit-scrollbar-thumb {
-  background: rgba(118, 185, 0, 0.3);
-  border-radius: 4px;
+  display: none;
 }
 
 .workspace-tabs-bar .tab-btn {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   background: rgba(22, 27, 34, 0.8);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 10px;
-  padding: 8px 16px;
+  border-radius: 8px;
+  padding: 7px 14px;
   color: #94A3B8;
   cursor: pointer;
   transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1);
   font-family: var(--font-ui);
   text-align: left;
-  white-space: nowrap;
   user-select: none;
+  flex: 0 1 auto;
 }
 
 .workspace-tabs-bar .tab-btn:hover {

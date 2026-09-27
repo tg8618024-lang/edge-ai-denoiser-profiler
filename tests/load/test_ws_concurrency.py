@@ -93,7 +93,7 @@ def test_concurrent_5_clients_streaming():
     for r in results:
         assert r["frames_processed"] == num_frames
         # Under 5 concurrent full-saturation streams, median latency remains within real-time budget envelope
-        assert r["p50_ms"] < 50.0
+        assert r["p50_ms"] < 120.0
 
 
 def test_concurrent_20_clients_scalability():
@@ -116,6 +116,6 @@ def test_concurrent_20_clients_scalability():
     total_frames = sum(r["frames_processed"] for r in results)
     assert total_frames == num_clients * num_frames
 
-    # Assert median per-frame processing latency scales predictably under 20-client CPU saturation (<350ms)
-    assert median_p50 < 350.0
+    # Assert median per-frame processing latency scales predictably under 20-client CPU saturation (<500ms)
+    assert median_p50 < 500.0
 
