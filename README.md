@@ -193,22 +193,22 @@ pytest -v
 python evaluate.py
 
 # Run 7-tier scientific component ablation & Pareto efficiency analysis
-python run_ablation.py
+python scripts/run_ablation.py
 
 # Run baseline capture tool (Phase 0)
-python benchmark_baseline.py
+python benchmarks/benchmark_baseline.py
 
 # Run Phase 2 WebSocket concurrency load test (1, 5, 20 clients)
-python benchmark_concurrency.py
+python benchmarks/benchmark_concurrency.py
 
 # Run Phase 3 Model & DSP benchmark (ONNX, INT8, VAD, STOI, DNSMOS)
-python benchmark_model_dsp.py
+python benchmarks/benchmark_model_dsp.py
 
 # Run Phase 4 sustained edge endurance & thermal stress benchmark
-python benchmark_edge_endurance.py --profile jetson_nano --duration 10.0
+python benchmarks/benchmark_edge_endurance.py --profile jetson_nano --duration 10.0
 
 # Run Phase 5 Fixed-Point (Q1.15) DSP benchmark
-python benchmark_fixed_point.py --duration 3.0
+python benchmarks/benchmark_fixed_point.py --duration 3.0
 ```
 
 ---
@@ -218,7 +218,7 @@ python benchmark_fixed_point.py --duration 3.0
 Targeting resource-constrained edge silicon (NVIDIA Jetson, Raspberry Pi, NXP i.MX, and edge containers), the pipeline includes:
 - **Physical Hardware Monitor** (`src/telemetry/hardware_monitor.py`): Non-blocking adapters reading live SoC temperatures (°C), power draw (W), and throttling bitmasks from NVIDIA Jetson `tegrastats`, Raspberry Pi `vcgencmd`, Linux sysfs thermal zones, and Docker cgroups.
 - **Multi-Stage ARM64 Docker Images** (`Dockerfile.edge` & `docker-compose.edge.yml`): Minimal Alpine/Debian-slim images configured with strict hardware resource limits.
-- **Sustained Endurance & Thermal Stress Benchmark** (`benchmark_edge_endurance.py`): Validates long-running stability, zero buffer underruns, flat memory footprint, and thermal headroom.
+- **Sustained Endurance & Thermal Stress Benchmark** (`benchmarks/benchmark_edge_endurance.py`): Validates long-running stability, zero buffer underruns, flat memory footprint, and thermal headroom.
 
 ### Target Hardware Profile Matrix
 
@@ -231,7 +231,7 @@ Targeting resource-constrained edge silicon (NVIDIA Jetson, Raspberry Pi, NXP i.
 
 ### Sustained Edge Endurance Benchmark (Jetson Nano Profile @ 10s Continuous Stream)
 
-Audited via `benchmark_edge_endurance.py`:
+Audited via `benchmarks/benchmark_edge_endurance.py`:
 
 | Parameter / Metric | Measured Result | Specification / Budget Limit | Status |
 | :--- | :--- | :--- | :--- |
@@ -268,7 +268,7 @@ The pipeline incorporates a zero-overhead Prometheus telemetry engine exposing h
 
 ### Concurrency Scalability Benchmark (1, 5, and 20 Concurrent Streams)
 
-Audited via `benchmark_concurrency.py` simulating sustained WebSocket audio streaming across multiple simultaneous clients:
+Audited via `benchmarks/benchmark_concurrency.py` simulating sustained WebSocket audio streaming across multiple simultaneous clients:
 
 | Concurrent Streams | Server Throughput | P50 Latency | P95 Latency | P99 Latency | RTT Median | Jitter | Process Memory | Headroom (20ms) |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
@@ -307,7 +307,7 @@ Phase 5 introduces the crown jewels of the project that elevate it from a Python
 ### 2. 🧮 Fixed-Point Q1.15 Integer-Only DSP Engine (Zero-FLOP Path)
 Designed for battery-operated hearing aids, earbuds, and ultra-low-power microcontrollers (ARM Cortex-M0+/M3/M4, Tensilica HiFi DSP) without FPUs:
 - **100% Integer Arithmetic** (`src/audio/fixed_point.py`): Zero floating-point operations in the inner loop; signed 16-bit Q1.15 input/output audio with saturating integer additions.
-- **Fidelity & Efficiency Benchmark** (`benchmark_fixed_point.py`):
+- **Fidelity & Efficiency Benchmark** (`benchmarks/benchmark_fixed_point.py`):
   | Metric | FP32 Floating-Point Baseline | Fixed-Point Q1.15 Engine | Embedded Advantage |
   | :--- | :--- | :--- | :--- |
   | **Quantization Fidelity** | 100.0 dB (Reference) | **`82.15 dB SQNR`** | Crystal-clear speech intelligibility |
@@ -346,12 +346,12 @@ Designed for battery-operated hearing aids, earbuds, and ultra-low-power microco
 
 ## 🗺️ Engineering Roadmap
 
-- [x] **Phase 0 — Baseline & Packaging**: Reproducible baseline capture (`benchmark_baseline.py`), `pyproject.toml`, clean UTF-8 `requirements.txt`, 1-click launchers (`run.bat`, `run.sh`).
+- [x] **Phase 0 — Baseline & Packaging**: Reproducible baseline capture (`benchmarks/benchmark_baseline.py`), `pyproject.toml`, clean UTF-8 `requirements.txt`, 1-click launchers (`run.bat`, `run.sh`).
 - [x] **Phase 1 — Portfolio Polish**: Flagship README, multi-platform GitHub Actions CI, frontend 1-click Telemetry Report downloads (CSV/JSON).
-- [x] **Phase 2 — Observability Upgrade**: Prometheus `/metrics` endpoint, Grafana dashboard configuration (`grafana_dashboard.json`), Docker Compose stack, and WebSocket concurrency load-testing across 1, 5, and 20 clients (`benchmark_concurrency.py`).
+- [x] **Phase 2 — Observability Upgrade**: Prometheus `/metrics` endpoint, Grafana dashboard configuration (`grafana_dashboard.json`), Docker Compose stack, and WebSocket concurrency load-testing across 1, 5, and 20 clients (`benchmarks/benchmark_concurrency.py`).
 - [x] **Phase 3 — Model & DSP Enhancements**: Voice Activity Detection (VAD) gating saving >34% compute during pauses, ONNX FP32/INT8 graph export, STOI/DNSMOS objective quality evaluation, noise classifier steering.
-- [x] **Phase 4 — Real Edge Deployment**: Multi-stage ARM64 Docker builds (`Dockerfile.edge`), Raspberry Pi (`vcgencmd`) & NVIDIA Jetson (`tegrastats`) physical telemetry adapters, sustained endurance & thermal benchmark (`benchmark_edge_endurance.py`), and real-time Linux deployment guide (`EDGE_DEPLOYMENT_GUIDE.md`).
-- [x] **Phase 5 — Differentiation**: Live A/B dual-model visualizer & crossfader (`DualModelPipeline`), Q1.15 fixed-point DSP engine without floating-point operations (`benchmark_fixed_point.py`), and Manifest V3 Chrome Extension for Google Meet, Discord, and Zoom Web (`CHROME_EXTENSION_GUIDE.md`).
+- [x] **Phase 4 — Real Edge Deployment**: Multi-stage ARM64 Docker builds (`Dockerfile.edge`), Raspberry Pi (`vcgencmd`) & NVIDIA Jetson (`tegrastats`) physical telemetry adapters, sustained endurance & thermal benchmark (`benchmarks/benchmark_edge_endurance.py`), and real-time Linux deployment guide (`EDGE_DEPLOYMENT_GUIDE.md`).
+- [x] **Phase 5 — Differentiation**: Live A/B dual-model visualizer & crossfader (`DualModelPipeline`), Q1.15 fixed-point DSP engine without floating-point operations (`benchmarks/benchmark_fixed_point.py`), and Manifest V3 Chrome Extension for Google Meet, Discord, and Zoom Web (`CHROME_EXTENSION_GUIDE.md`).
 - [x] **Frontier Stretch Goals (10.0/10 Complete)**:
   - VST3 / CLAP DAW Plugin Bridge & Host Simulator (`src/plugins/vst/`, `VST3_GUIDE.md`).
   - Synthesizable FPGA Verilog RTL Co-Processor & Parity Simulator (`hardware/fpga_rtl/`, `FPGA_RTL_SPEC.md`).
@@ -363,7 +363,7 @@ Designed for battery-operated hearing aids, earbuds, and ultra-low-power microco
 - [x] **Phase 10 — WebRTC & Network Transport**: RFC 3550 adaptive jitter buffer, ITU-T G.711 pitch-synchronous PLC with geometric energy decay ($g = 0.85^k$), SDP codec negotiation, and FastAPI signaling endpoints.
 - [x] **Phase 11 — Studio Ecosystem Integrations**: OBS Studio binary TCP IPC server (`127.0.0.1:18890`), VST3/CLAP stereo processing with independent channel FIFOs, and studio dashboard workspace.
 - [x] **Phase 12 — Reliability & Concurrency Hardening**: Physical silicon thermal ODE ($\tau = 10.0\text{ s}$), $+100\text{ dBFS}$ smooth saturation protection, denormal float flushing, and multi-threaded concurrency safety tests.
-- [x] **Phase 13 — Scientific Ablation & Pareto Analysis**: 7-tier component ablation engine (`run_ablation.py`), objective psychoacoustic evaluation (DNSMOS, STOI), and INT8 Pareto efficiency verification ($\ge 74\%$ memory reduction, $< 0.20\text{ dB}$ SNR delta).
+- [x] **Phase 13 — Scientific Ablation & Pareto Analysis**: 7-tier component ablation engine (`scripts/run_ablation.py`), objective psychoacoustic evaluation (DNSMOS, STOI), and INT8 Pareto efficiency verification ($\ge 74\%$ memory reduction, $< 0.20\text{ dB}$ SNR delta).
 - [x] **Phase 14 — Final Product & Documentation**: Comprehensive README with 374/374 test badge, updated benchmark telemetry, and complete engineering roadmap.
 
 ---
