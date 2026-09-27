@@ -220,6 +220,17 @@ async def get_index():
     return JSONResponse({"status": "active", "message": "Dashboard frontend index.html not yet installed"})
 
 
+@app.get("/presentation")
+@app.get("/presentation/")
+@app.get("/presentation/index.html")
+async def get_presentation():
+    """Serves the interactive 10-slide architectural keynote presentation."""
+    presentation_path = os.path.join(STATIC_DIR, "presentation.html")
+    if os.path.isfile(presentation_path):
+        return FileResponse(presentation_path, media_type="text/html")
+    raise HTTPException(status_code=404, detail="Interactive presentation deck not found")
+
+
 @app.get("/webgpu")
 @app.get("/webgpu/")
 @app.get("/webgpu/index.html")
@@ -1228,6 +1239,13 @@ async def get_studio_integrations():
                 "webrtc_shim": "scripts/webrtc_shim.js",
                 "audio_worklet": "scripts/denoiser-worklet.js",
                 "status": "packaged",
+            },
+            "keynote_presentation": {
+                "name": "Interactive Architectural Keynote Presentation Deck",
+                "transport": "HTTP/HTML5 Canvas + Web Audio API",
+                "endpoint": "/presentation",
+                "slides": 10,
+                "status": "ready",
             },
         },
     }

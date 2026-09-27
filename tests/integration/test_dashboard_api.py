@@ -339,6 +339,21 @@ def test_api_studio_integrations_endpoint(client: TestClient):
     assert "chrome_extension" in integ
     assert integ["chrome_extension"]["manifest_version"] == 3
 
+    assert "keynote_presentation" in integ
+    assert integ["keynote_presentation"]["endpoint"] == "/presentation"
+    assert integ["keynote_presentation"]["slides"] == 10
+
+
+def test_get_presentation_html(client: TestClient):
+    """Verifies that /presentation serves the interactive 10-slide keynote deck."""
+    for path in ("/presentation", "/presentation/", "/presentation/index.html"):
+        response = client.get(path)
+        assert response.status_code == 200
+        assert "text/html" in response.headers.get("content-type", "")
+        assert "Keynote Presentation" in response.text
+        assert "Real-Time Edge AI Audio Denoiser" in response.text
+        assert "slide active" in response.text
+
 
 def test_api_obs_status_endpoint(client: TestClient):
     """Verifies /api/obs/status reports OBS server status and metrics."""
