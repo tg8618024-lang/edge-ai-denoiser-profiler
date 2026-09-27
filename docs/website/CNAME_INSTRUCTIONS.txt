@@ -1,0 +1,5 @@
+# GitHub Pages Configuration
+# This file tells GitHub Pages to use the /docs/website folder as the web root.
+# Go to: Settings → Pages → Source → "Deploy from a branch" → Branch: main → Folder: /docs/website
+
+# Optional: Use a custom domain by adding a CNAME file inside docs/website/

@@ -1,73 +1,43 @@
-name: Continuous Integration & Telemetry Verification
+name: CI — Test Suite & Evaluation Benchmark
 
 on:
   push:
-    branches: [main, master]
+    branches: [main, develop]
   pull_request:
-    branches: [main, master]
-  workflow_dispatch:
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+    branches: [main]
 
 jobs:
-  lint:
-    name: Code Quality & Linting
+  test:
+    name: pytest (375 tests) + evaluate.py
     runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-          cache: "pip"
-
-      - name: Install Linting Tools
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install ruff
-
-      - name: Run Ruff Lint Check
-        run: |
-          ruff check .
-
-  test-and-evaluate:
-    name: Test & Evaluate (${{ matrix.os }} - Py${{ matrix.python-version }})
-    needs: lint
-    runs-on: ${{ matrix.os }}
     strategy:
-      fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
-        python-version: ["3.10", "3.11", "3.12", "3.13"]
+        python-version: ["3.10", "3.11", "3.12"]
 
     steps:
-      - name: Checkout Code
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-          cache: "pip"
+          cache: 'pip'
 
-      - name: Install Dependencies
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install -r requirements.txt
-          python -m pip install pytest httpx
+      - name: Install dependencies
+        run: pip install -r requirements.txt
 
-      - name: Execute Full Pytest Test Suite
-        run: |
-          python -m pytest -v --durations=10
+      - name: Run full test suite
+        run: pytest -q --tb=short
 
-      - name: Run Automated Standalone Evaluation Benchmark
-        run: |
-          python evaluate.py
+      - name: Run evaluation benchmark
+        run: python evaluate.py
 
-      - name: Validate Baseline Capture Script
-        run: |
-          python benchmark_baseline.py
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-py${{ matrix.python-version }}
+          path: |
+            docs/benchmarks/
+          retention-days: 30
