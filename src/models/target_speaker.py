@@ -3,11 +3,13 @@
 Provides:
 - TriggerWordDetector: Keyword spotting for wake / lock commands ("lock voice", "hey denoiser", "unlock voice").
 - SpeakerVoiceprint: Compact 64-dimensional acoustic speaker embedding extractor.
-- TargetSpeakerExtractor: Real-time speaker verification and competing background voice suppression.
+- TargetSpeakerController: Real-time speaker verification, wake-word control, multi-speaker registry, and other-speaker suppression.
+- TargetSpeakerExtractor: Backwards-compatible alias for TargetSpeakerController.
 """
 
 from __future__ import annotations
 import re
+import time
 from typing import Dict, List, Optional, Tuple, Any
 import numpy as np
 
@@ -161,8 +163,8 @@ class SpeakerVoiceprint:
         return vec.astype(np.float32)
 
 
-class TargetSpeakerExtractor:
-    """Locks onto target speaker voice and extracts target speech while suppressing competing voices."""
+class TargetSpeakerController:
+    """Target Speaker Controller for wake-word detection, speaker tracking, and other-speaker suppression."""
 
     def __init__(
         self,
@@ -170,20 +172,24 @@ class TargetSpeakerExtractor:
         num_bins: int = 257,
         similarity_threshold: float = 0.72,
         enrollment_frames: int = 25,
+        max_suppression_db: float = 34.0,
     ) -> None:
         self.sample_rate = sample_rate
         self.num_bins = num_bins
         self.similarity_threshold = float(similarity_threshold)
         self.enrollment_frames_target = int(enrollment_frames)
+        self.max_suppression_db = float(max_suppression_db)
 
         self.voiceprint_extractor = SpeakerVoiceprint(sample_rate=sample_rate, num_bins=num_bins)
         self.trigger_detector = TriggerWordDetector()
 
-        # Target speaker state
+        # Target speaker state & registry
         self.is_locked: bool = False
         self.is_enrolling: bool = False
+        self.active_speaker_name: str = "Target Speaker"
         self.target_voiceprint: Optional[np.ndarray] = None
         self.enrollment_buffer: List[np.ndarray] = []
+        self.enrolled_speakers: Dict[str, Dict[str, Any]] = {}
 
         # Real-time running telemetry
         self.current_similarity: float = 1.0
@@ -192,9 +198,23 @@ class TargetSpeakerExtractor:
         self.is_target_active: bool = True
         self.suppression_db: float = 0.0
 
-    def trigger_enrollment(self, num_frames: int = 25) -> None:
+    @property
+    def state(self) -> str:
+        """Return high-level operational state of the target speaker controller."""
+        if self.is_enrolling:
+            return "ENROLLING"
+        if self.is_locked:
+            return "ATTENUATING" if not self.is_target_active else "LOCKED_TRACKING"
+        return "IDLE"
+
+    def detect_trigger_word(self, transcript_text: str) -> Optional[Tuple[str, str]]:
+        """Run trigger-word detection on transcript text."""
+        return self.trigger_detector.detect(transcript_text)
+
+    def trigger_enrollment(self, num_frames: int = 25, speaker_name: str = "Target Speaker") -> None:
         """Begin enrolling target speaker voiceprint from upcoming speech frames."""
         self.enrollment_frames_target = max(1, int(num_frames))
+        self.active_speaker_name = str(speaker_name or "Target Speaker")
         self.enrollment_buffer.clear()
         self.is_enrolling = True
         self.is_locked = False
@@ -202,16 +222,23 @@ class TargetSpeakerExtractor:
         self.current_similarity = 1.0
         self.smoothed_similarity = 1.0
 
-    def lock_with_embedding(self, embedding: np.ndarray) -> None:
+    def lock_with_embedding(self, embedding: np.ndarray, speaker_name: str = "Target Speaker") -> None:
         """Lock immediately with precomputed speaker embedding."""
         emb = np.asarray(embedding, dtype=np.float32)
         norm = float(np.linalg.norm(emb))
         if norm > 1e-6:
             emb /= norm
         self.target_voiceprint = emb
+        self.active_speaker_name = str(speaker_name or "Target Speaker")
         self.is_locked = True
         self.is_enrolling = False
         self.enrollment_buffer.clear()
+        # Save to registry
+        self.enrolled_speakers[self.active_speaker_name] = {
+            "name": self.active_speaker_name,
+            "embedding": emb.copy(),
+            "timestamp": time.time(),
+        }
 
     def unlock(self) -> None:
         """Unlock voice lock, returning to pass-all-speakers mode."""
@@ -238,13 +265,42 @@ class TargetSpeakerExtractor:
                 return "unlock"
         return None
 
+    def switch_target_speaker(self, speaker_name: str) -> bool:
+        """Switch active target speaker to a previously enrolled voiceprint."""
+        if speaker_name in self.enrolled_speakers:
+            self.lock_with_embedding(
+                self.enrolled_speakers[speaker_name]["embedding"],
+                speaker_name=speaker_name,
+            )
+            return True
+        return False
+
+    def list_enrolled_speakers(self) -> List[Dict[str, Any]]:
+        """Return list of enrolled speaker profiles."""
+        return [
+            {
+                "name": name,
+                "timestamp": profile.get("timestamp", 0.0),
+                "is_active": (name == self.active_speaker_name and self.is_locked),
+            }
+            for name, profile in self.enrolled_speakers.items()
+        ]
+
+    def set_suppression_depth(self, suppression_db: float) -> None:
+        """Configure maximum suppression depth in dB (e.g. 12 dB to 36 dB)."""
+        self.max_suppression_db = float(np.clip(suppression_db, 6.0, 40.0))
+
+    def condition_spectrum(self, mag_spec: np.ndarray, g_tse: np.ndarray) -> np.ndarray:
+        """Pre-condition magnitude spectrum with Target Speaker Mask prior to GRU inference."""
+        return (mag_spec * g_tse).astype(np.float32)
+
     def process_frame(
         self,
         time_frame: np.ndarray,
         mag_spec: np.ndarray,
         is_speech: bool = True,
     ) -> np.ndarray:
-        """Compute target speaker spectral gain mask G_TSE(f) in [0.02, 1.0]."""
+        """Compute target speaker spectral gain mask G_TSE(f) in [0.005, 1.0]."""
         # If unlocked, all voices pass freely
         if not self.is_locked and not self.is_enrolling:
             self.current_similarity = 1.0
@@ -269,6 +325,11 @@ class TargetSpeakerExtractor:
                     self.target_voiceprint = mean_vec.astype(np.float32)
                     self.is_locked = True
                     self.is_enrolling = False
+                    self.enrolled_speakers[self.active_speaker_name] = {
+                        "name": self.active_speaker_name,
+                        "embedding": self.target_voiceprint.copy(),
+                        "timestamp": time.time(),
+                    }
                     self.enrollment_buffer.clear()
             return np.ones(self.num_bins, dtype=np.float32)
 
@@ -297,9 +358,10 @@ class TargetSpeakerExtractor:
             else:
                 # Competing secondary speaker detected!
                 self.is_target_active = False
-                # Suppression curve: smoothly attenuates down to 0.02 (-34 dB)
-                atten = np.clip((smooth_s / self.similarity_threshold) ** 6, 0.02, 1.0)
-                self.suppression_db = round(-20.0 * np.log10(max(1e-3, float(atten))), 1)
+                # Suppression curve: smoothly attenuates based on max_suppression_db
+                min_atten = float(10.0 ** (-self.max_suppression_db / 20.0))
+                atten = np.clip((smooth_s / self.similarity_threshold) ** 6, min_atten, 1.0)
+                self.suppression_db = round(-20.0 * np.log10(max(1e-4, float(atten))), 1)
 
                 # Generate speech-band suppression mask
                 mask = np.full(self.num_bins, float(atten), dtype=np.float32)
@@ -310,8 +372,10 @@ class TargetSpeakerExtractor:
     def get_telemetry(self) -> Dict[str, Any]:
         """Return comprehensive target speaker telemetry for UI and WebSocket."""
         return {
+            "state": self.state,
             "is_locked": self.is_locked,
             "is_enrolling": self.is_enrolling,
+            "active_speaker_name": self.active_speaker_name,
             "enrollment_progress_pct": round(
                 (len(self.enrollment_buffer) / max(1, self.enrollment_frames_target)) * 100.0, 1
             ) if self.is_enrolling else (100.0 if self.is_locked else 0.0),
@@ -320,5 +384,11 @@ class TargetSpeakerExtractor:
             "similarity_threshold": self.similarity_threshold,
             "is_target_active": self.is_target_active,
             "secondary_speaker_suppression_db": self.suppression_db,
+            "max_suppression_db": self.max_suppression_db,
             "last_trigger_phrase": self.last_trigger_phrase,
+            "enrolled_count": len(self.enrolled_speakers),
         }
+
+
+# Backwards compatibility alias
+TargetSpeakerExtractor = TargetSpeakerController

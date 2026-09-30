@@ -20,7 +20,7 @@ from src.audio.harmonics import HarmonicEnhancer
 from src.audio.dereverb import SpectralDereverberator
 from src.audio.vocal_suite import BroadcastVocalSuite
 from src.audio.parametric_eq import ParametricEQ
-from src.models.target_speaker import TargetSpeakerExtractor
+from src.models.target_speaker import TargetSpeakerController, TargetSpeakerExtractor
 from src.models.denoiser import HybridDenoiser
 from src.models.noise_classifier import (
     NoiseSignatureClassifier,
@@ -118,7 +118,7 @@ class AudioDenoisingPipeline:
         )
 
         # Trigger-Word Activated Target Speaker Extraction (TSE / Voice Lock)
-        self.target_speaker = TargetSpeakerExtractor(
+        self.target_speaker = TargetSpeakerController(
             sample_rate=self.sample_rate,
             num_bins=self.stft.num_bins,
             similarity_threshold=0.72,
@@ -569,8 +569,23 @@ class AudioDenoisingPipeline:
         if profiler is not None and hasattr(profiler, "end_substage"):
             profiler.end_substage("dereverberation")
 
+        # Target Speaker Controller: Wake-word & Target Speaker Mask calculation
+        if profiler is not None and hasattr(profiler, "start_substage"):
+            profiler.start_substage("target_speaker")
+        t_sub_tse = time.perf_counter_ns()
+        g_tse = self.target_speaker.process_frame(
+            frame_pcm,
+            mag_spec,
+            is_speech=vad_decision.is_speech,
+        )
+        t_tse_ms = max(time.perf_counter_ns() - t_sub_tse, 100) / 1_000_000.0
+        if profiler is not None and hasattr(profiler, "end_substage"):
+            profiler.end_substage("target_speaker")
+        self.last_g_tse = g_tse
+
         self.last_substages = {
             "vad_ms": t_vad_ms,
+            "tse_ms": t_tse_ms,
             "noise_classification_ms": t_nc_ms,
             "adaptive_controller_ms": t_ac_ms,
             "dereverberation_ms": t_dr_ms,
@@ -585,6 +600,12 @@ class AudioDenoisingPipeline:
         if profiler is not None and hasattr(profiler, "start_stage"):
             profiler.start_stage("tensor_compute")
 
+        # Condition spectrum with Target Speaker Mask prior to GRUMaskNet inference
+        if self.target_speaker.is_locked and not self.target_speaker.is_target_active:
+            spec_for_denoiser = (spec_complex * g_tse).astype(np.complex64)
+        else:
+            spec_for_denoiser = spec_complex
+
         if self.vad_gating and not vad_decision.is_speech:
             # Gating active: Silence / non-speech frame -> bypass neural network compute
             # Comfort noise floor attenuation (0.005)
@@ -592,18 +613,11 @@ class AudioDenoisingPipeline:
             self.cumulative_tensor_time_saved_ms += 0.160
         else:
             if hasattr(self.model, "compute_gain"):
-                gain_mask = self.model.compute_gain(spec_complex)
+                gain_mask = self.model.compute_gain(spec_for_denoiser)
             elif callable(self.model):
-                gain_mask = self.model(spec_complex)
+                gain_mask = self.model(spec_for_denoiser)
             else:
                 gain_mask = np.ones(self.stft.num_bins, dtype=np.float32)
-
-        # Target Speaker Extraction (TSE / Voice Lock) mask
-        g_tse = self.target_speaker.process_frame(
-            frame_pcm,
-            mag_spec,
-            is_speech=vad_decision.is_speech,
-        )
 
         # Fused spectral filtering: Denoiser * Dereverberator * Target Speaker
         gain_mask = gain_mask * g_dereverb * g_tse

@@ -66,6 +66,7 @@ from src.integrations.obs_bridge import (
     OBSFilterBridge,
     OBSFilterServer,
 )
+from src.agents.target_speaker_agent import TargetSpeakerAgent
 
 obs_server = OBSFilterServer(
     host="127.0.0.1",
@@ -176,6 +177,15 @@ class StudioConfigRequest(BaseModel):
 class TSELockRequest(BaseModel):
     enrollment_frames: Optional[int] = Field(default=25, ge=5, le=100)
     embedding: Optional[List[float]] = None
+
+
+class TargetSpeakerCommandRequest(BaseModel):
+    command: str = Field(..., min_length=1, max_length=500)
+
+
+class TargetSpeakerEnrollRequest(BaseModel):
+    speaker_name: Optional[str] = Field(default="Host", max_length=100)
+    enrollment_frames: Optional[int] = Field(default=25, ge=5, le=100)
 
 
 class EQConfigureRequest(BaseModel):
@@ -457,6 +467,59 @@ async def unlock_target_speaker():
             "message": "Voice lock unlocked",
             "telemetry": state.pipeline.get_tse_telemetry(),
         }
+
+
+# -----------------------------------------------------------------------------
+# Google Antigravity SDK: Target Speaker Agent Endpoints
+# -----------------------------------------------------------------------------
+@app.get("/api/target-speaker/status")
+async def get_target_speaker_status():
+    """Retrieve live Target Speaker Controller & Agent telemetry."""
+    with state.lock:
+        agent = TargetSpeakerAgent(controller=state.pipeline.target_speaker)
+        return agent.get_telemetry()
+
+
+@app.post("/api/target-speaker/enroll")
+async def enroll_target_speaker(req: Optional[TargetSpeakerEnrollRequest] = None):
+    """Enroll target speaker voiceprint."""
+    frames = req.enrollment_frames if req and req.enrollment_frames else 25
+    name = req.speaker_name if req and req.speaker_name else "Host"
+    with state.lock:
+        agent = TargetSpeakerAgent(controller=state.pipeline.target_speaker)
+        msg = agent.tools.tool_enroll_speaker(speaker_name=name, num_frames=frames)
+        return {
+            "success": True,
+            "message": msg,
+            "telemetry": agent.get_telemetry(),
+        }
+
+
+@app.post("/api/target-speaker/unlock")
+async def unlock_target_speaker_alias():
+    """Unlock target speaker voice lock."""
+    with state.lock:
+        agent = TargetSpeakerAgent(controller=state.pipeline.target_speaker)
+        msg = agent.tools.tool_unlock_speaker()
+        return {
+            "success": True,
+            "message": msg,
+            "telemetry": agent.get_telemetry(),
+        }
+
+
+@app.post("/api/target-speaker/command")
+async def handle_target_speaker_command(req: TargetSpeakerCommandRequest):
+    """Execute natural language or trigger-word command via TargetSpeakerAgent."""
+    with state.lock:
+        agent = TargetSpeakerAgent(controller=state.pipeline.target_speaker)
+        response_text = agent.execute_command(req.command)
+        return {
+            "success": True,
+            "response": response_text,
+            "telemetry": agent.get_telemetry(),
+        }
+
 
 
 # -----------------------------------------------------------------------------
